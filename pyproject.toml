@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "baremetal-harness"
+version = "0.1.0"
+description = "A handwritten agent harness with no framework dependency"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = ["httpx>=0.28,<0.29"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.4,<9",
+    "pytest-asyncio>=1.1,<2",
+    "ruff>=0.6,<1",
+]
+
+[project.scripts]
+baremetal-harness = "baremetal_harness.cli.repl:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "ASYNC"]
+ignore = [
+    "E501",     # long lines are a formatter concern
+    "SIM108",   # a ternary is not always clearer than an if/else
+    "B008",     # tool builders use factory defaults deliberately
+    "UP040",    # PEP 695 aliases are lazy; these are read at runtime
+    "ASYNC240", # pathlib is used directly; the project has no trio/anyio dep
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "E402",     # imports inside tests are sometimes deliberately local
+    "ASYNC109", # test helpers take a plain timeout argument
+    "SIM117",   # nested with blocks read better in arrange/act/assert tests
+]

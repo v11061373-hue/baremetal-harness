@@ -1,0 +1,62 @@
+[
+  {
+    "id": "simple-streamed-answer",
+    "prompt": "say ok",
+    "script": [{"type": "text", "text": "ok"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": "ok"}]
+  },
+  {
+    "id": "multi-delta-answer",
+    "prompt": "say hello",
+    "script": [{"type": "text", "text": "hel"}, {"type": "text", "text": "lo"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": "hello"}]
+  },
+  {
+    "id": "completed-status",
+    "prompt": "finish",
+    "script": [{"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "status_equals", "value": "completed"}]
+  },
+  {
+    "id": "event-sequence",
+    "prompt": "trace",
+    "script": [{"type": "text", "text": "done"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "event_sequence_contains", "value": ["RunStarted", "TextDelta", "RunCompleted"]}]
+  },
+  {
+    "id": "unicode-output",
+    "prompt": "中文",
+    "script": [{"type": "text", "text": "完成"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": "完成"}]
+  },
+  {
+    "id": "empty-output",
+    "prompt": "empty",
+    "script": [{"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": ""}]
+  },
+  {
+    "id": "newline-output",
+    "prompt": "lines",
+    "script": [{"type": "text", "text": "a\nb"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": "a\nb"}]
+  },
+  {
+    "id": "deterministic-one",
+    "prompt": "one",
+    "script": [{"type": "text", "text": "1"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "status_equals", "value": "completed"}]
+  },
+  {
+    "id": "deterministic-two",
+    "prompt": "two",
+    "script": [{"type": "text", "text": "2"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "output_equals", "value": "2"}]
+  },
+  {
+    "id": "final-run-event",
+    "prompt": "event",
+    "script": [{"type": "text", "text": "ok"}, {"type": "complete", "reason": "stop"}],
+    "assertions": [{"type": "event_sequence_contains", "value": ["ModelStreamStarted", "RunCompleted"]}]
+  }
+]

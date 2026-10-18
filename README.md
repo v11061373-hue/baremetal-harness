@@ -1,6 +1,6 @@
 # BareMetal Harness
 
-> 轻量级终端 AI Agent Harness 运行系统 —— 零 Agent 框架依赖，运行时只有 `httpx`。
+> 轻量级终端 AI Agent Harness 运行系统 —— 零 Agent 框架依赖，运行时只有 `httpx` 一个第三方库。
 
 <p align="center">
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -10,35 +10,49 @@
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
-从零实现的通用任务 Agent 运行系统，形态类似 Claude Code。Agent Loop、Tool Runtime、
-Context 预算、长期记忆、Planning、Permission、Sandbox、Skills、Subagent、Scheduler、
-MCP 客户端、Tracing、Evals 全部由仓库代码实现，不依赖任何 Agent 框架或厂商 SDK。
+BareMetal Harness 是一个从零实现的通用任务 Agent 运行系统，形态类似 Claude Code。
+Agent Loop、Tool Runtime、Context 预算、长期记忆、Planning、Permission、Sandbox、
+Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由仓库代码实现，
+不依赖任何 Agent 框架或厂商 SDK。要求 Python 3.12+；测试、Evals 与示例完全离线，
+不需要 API Key 即可跑通全链路。
 
-要求 Python 3.12+。测试、Evals、示例完全离线，不需要 API Key。
+## 核心能力
 
-## ✨ 特性
+**① 完整运行链路，零框架依赖**
 
-**🛡 安全与权限**
-- **改动不落项目** —— 启动时复制工作区到沙箱，Agent 只动副本；改动经临时文件原子替换写回，`/changes` 查差异、`/apply` 显式批准，形成执行、检查、应用三步可控交付。
-- **能力声明决定权限** —— 每个工具声明 `filesystem / network / subprocess / secrets / risk_level`，策略给 ALLOW / ASK / DENY；只读自动放行，写入与网络必须审批。
-- **后台自动收紧** —— 无人值守的定时任务拒绝一切 ASK 动作，除非显式预授权。
+基于 `httpx` 直连大模型 HTTP 流式接口，手写 Agent Loop 显式状态机、工具调用组装与
+执行预算控制，将模型交互、工具执行、权限审批、持久化与审计串成一条完整链路。
+核心运行时仅依赖 `httpx` 一个第三方库，覆盖 516 项自动化测试。
 
-**🧠 编排与上下文**
-- **显式状态机** —— 基于 httpx 直连大模型 HTTP 流式接口，Agent Loop 的非法状态转移直接报错，不吞错。
-- **确定性预算裁剪** —— 上下文按优先级裁剪，Skill / 记忆按触发注入，全程留 `ContextInjected` 审计事件。
-- **手写 SSE 流式解码** —— 首个流式事件前对限流、超时等可重试异常做带上限的指数退避 + 随机抖动，遵循服务端重试等待指示；开始输出后不再自动重启流。
+**② 能力声明与三级审批**
 
-**🧰 工具与多 Agent**
-- **内置工具** —— 文件、Shell（沙箱内）、Git（只读自动放行）、网页（含 SSRF 防护）；MCP 服务器工具统一为 `mcp_<服务器>_<工具>` 命名。
-- **记忆 / 计划 / 调度** —— 长期记忆检索、计划任务、定时调度，全部持久化。
-- **子 Agent 委派** —— 独立 Child AgentLoop，工具白名单与父取交集、委派深度受限，与后台无人值守任务一起纳入权限传播控制。
+每个工具声明自己的 `filesystem / network / subprocess / secrets / risk_level` 能力，
+统一权限策略据此给出 `ALLOW / ASK / DENY` 三种处置：只读自动放行，写入与网络必须审批。
+所有改动落在工作区副本，经临时文件原子替换写回，`/changes` 查差异、`/apply` 显式批准，
+构成执行、检查、应用三步可控的文件修改交付。子 Agent 委派以工具白名单取交集 + 委派深度
+限制约束，与后台无人值守任务一起纳入权限传播控制。
 
-**💾 可靠与可测**
-- **全程可审计** —— 模型输出、工具调用、审批结果进结构化事件流写 trace，密钥自动脱敏；事件 ID 与运行序号做增量索引缓存，保留重复事件与序号连续性校验。
-- **状态可恢复** —— Session / Checkpoint / Plan / Memory 持久化，`/resume` 续跑；Checkpoint 以校验摘要做完整性检查，工具调用与结果配对识别未完成调用，结合幂等性声明判断恢复策略，未完成的非幂等操作强制人工审批后再重放。
-- **离线可测** —— FakeModel + 脚本化模型复现限流 / 认证失败 / 网络异常，无需真实 API Key；基础离线 Evals 10 项全过，覆盖文本流拼接、完成状态、事件顺序与中文输出，并接入 CI。
+**③ 中断恢复与副作用规避**
 
-## 🏗 架构
+进程可能在工具产生副作用之后、结果落盘之前中断，留下状态不一致的会话。为此 Checkpoint
+以校验摘要做完整性检查，通过工具调用与结果的配对检测识别未完成调用，再结合工具幂等性
+声明判断恢复策略：未完成的非幂等操作强制人工审批后才允许恢复会话，有效规避中断恢复
+场景下重复产生副作用的风险。
+
+**④ 流式稳定性与审计性能**
+
+在首个流式事件发出前，对限流、超时等可重试异常采用带上限的指数退避与随机抖动重试，
+并遵循服务端重试等待指示；开始输出后不再自动重启流，避免重复内容。审计日志追加不再
+重复解析全量历史，改为事件 ID 与运行序号的增量索引缓存，同时保留重复事件与序号连续性
+校验，处理量不再随日志增长而线性恶化。
+
+**⑤ 离线评测与故障注入**
+
+基于 FakeModel 与脚本化模型搭建离线评测与故障注入体系，无需真实 API Key 即可稳定复现
+限流恢复、认证失败、网络异常等场景。基础离线 Evals 共 10 项全部通过，覆盖文本流拼接、
+完成状态、事件顺序与中文输出验证，并接入 CI 实现系统行为的持续可重复验证。
+
+## 架构
 
 ```text
 ┌────────────────────────────────────────────────────────────┐
@@ -64,7 +78,7 @@ MCP 客户端、Tracing、Evals 全部由仓库代码实现，不依赖任何 Ag
 自上而下五层：交互层收指令，编排层跑 Agent Loop 并做上下文与权限治理，执行层调度
 内置工具 / 记忆 / 计划 / 子 Agent，隔离层保证改动只落在沙箱副本，持久层支撑恢复与审计。
 
-## 🚀 快速开始
+## 快速开始
 
 ```bash
 git clone https://github.com/v11061373-hue/baremetal-harness.git
@@ -73,7 +87,7 @@ uv python install 3.12
 uv sync --extra dev --python 3.12
 ```
 
-先离线试一下（零成本，不需要 API Key）：
+先离线试一下，零成本、不需要 API Key：
 
 ```bash
 uv run python examples/full_agent_flow.py --fake
@@ -82,7 +96,7 @@ uv run python examples/full_agent_flow.py --fake
 用脚本化的假模型跑完整链路：加载 Skill → 生成计划 → 委派子 Agent → 写文件 →
 高危命令被权限拒绝 → 存记忆 → 调度任务 → 写 trace → 沙箱产物显式应用。
 
-## 🔌 接真实模型
+## 接真实模型
 
 ```bash
 uv run baremetal-harness config set base_url https://api.openai.com/v1
@@ -100,7 +114,7 @@ cd /path/to/your/project
 baremetal-harness
 ```
 
-## ⌨ 命令
+## 命令
 
 ```
 /changes            查看 Agent 在沙箱里改了什么
@@ -115,7 +129,7 @@ baremetal-harness
 /help
 ```
 
-## 🧰 工具
+## 工具
 
 | 类别 | 工具 |
 | --- | --- |
@@ -129,7 +143,7 @@ baremetal-harness
 | 调度 | `schedule_task` `list_scheduled_tasks` `cancel_scheduled_task` |
 | 扩展 | 任意 MCP 服务器提供的工具 |
 
-## ⚙ 可选配置
+## 可选配置
 
 配置文件放在 `<workspace>/.baremetal_harness/`（项目级）或 `~/.baremetal_harness/`（用户级），项目级优先。
 
@@ -172,7 +186,7 @@ MCP 工具统一命名为 `mcp_<服务器>_<工具>`，不会覆盖内置工具�
 app = await create_app(config, unattended_approved_tools=("fetch_url",))
 ```
 
-## 🧩 Skills
+## Skills
 
 在 `<workspace>/.baremetal_harness/skills/<name>/SKILL.md` 放一个带 frontmatter 的 Markdown：
 
@@ -189,7 +203,7 @@ Inspect the git log before writing release notes.
 
 命中触发词时，Skill 正文会作为 system message 注入，并留下 `ContextInjected` 审计事件。
 
-## 🛠 开发
+## 开发
 
 ```bash
 uv run ruff check .                                          # lint
@@ -200,7 +214,7 @@ bash scripts/smoke_offline.sh                                # 完整离线验�
 CI 在 Linux 和 macOS 上跑 lint、测试、离线验收，并从构建出的 wheel 做一次干净安装
 验证——全程不需要 API Key，不产生模型费用。
 
-## ⚠ 已知限制
+## 已知限制
 
 - Token 计数是启发式的（按字符分脚本估算），不是模型自己的 tokenizer；预算偏保守
 - 上下文超预算时按优先级丢弃，没有做摘要压缩
@@ -212,6 +226,6 @@ CI 在 Linux 和 macOS 上跑 lint、测试、离线验收，并从构建出的 
 - Scheduler 的跨进程认领依赖单个 SQLite 文件，不适用于多机部署
 - 没有浏览器自动化：`fetch_url` 抓取静态 HTML 并提取正文，不执行 JavaScript
 
-## 📄 License
+## License
 
 [MIT](LICENSE)

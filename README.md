@@ -87,15 +87,6 @@ uv python install 3.12
 uv sync --extra dev --python 3.12
 ```
 
-先离线试一下，零成本、不需要 API Key：
-
-```bash
-uv run python examples/full_agent_flow.py --fake
-```
-
-用脚本化的假模型跑完整链路：加载 Skill → 生成计划 → 委派子 Agent → 写文件 →
-高危命令被权限拒绝 → 存记忆 → 调度任务 → 写 trace → 沙箱产物显式应用。
-
 ## 接真实模型
 
 ```bash

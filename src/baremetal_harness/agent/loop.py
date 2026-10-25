@@ -83,6 +83,19 @@ class ApprovalResolved:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class PermissionEvaluated:
+    tool_name: str
+    decision: str
+    reason: str
+    argument_digest: str
+
+
+@dataclass(frozen=True, slots=True)
+class BudgetExceeded:
+    kind: str  # "turns" | "tool_calls" | "timeout"
+
+
 class ContextProvider(Protocol):
     """Contribute extra context sources for one run, e.g. skills or memory."""
 

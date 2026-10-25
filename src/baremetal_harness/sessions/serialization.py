@@ -198,9 +198,11 @@ def _event_payload_types() -> dict[str, type]:
     from baremetal_harness.agent.loop import (
         ApprovalRequested,
         ApprovalResolved,
+        BudgetExceeded,
         ContextBuilt,
         ContextInjected,
         ModelStreamStarted,
+        PermissionEvaluated,
         RunCancelled,
         RunCompleted,
         RunStarted,
@@ -223,6 +225,8 @@ def _event_payload_types() -> dict[str, type]:
             RunCancelled,
             ArtifactApplied,
             VerificationFailed,
+            PermissionEvaluated,
+            BudgetExceeded,
         )
     }
 

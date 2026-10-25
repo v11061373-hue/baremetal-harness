@@ -61,6 +61,7 @@ from baremetal_harness.sessions.serialization import PersistenceError
 from baremetal_harness.sessions.types import RunRecord
 from baremetal_harness.skills.discovery import discover_skills
 from baremetal_harness.skills.provider import SkillContextProvider
+from baremetal_harness.skills.rules import ProjectRulesProvider
 from baremetal_harness.subagents.factory import AgentLoopFactory
 from baremetal_harness.subagents.runtime import SubagentRuntime
 from baremetal_harness.tools.builtin.files import make_file_tools
@@ -678,6 +679,7 @@ async def create_app(
         context_providers = (
             SkillContextProvider(skills),
             MemoryContextProvider(memory),
+            ProjectRulesProvider.load(config.workspace),
         )
 
         tools = ToolRegistry()

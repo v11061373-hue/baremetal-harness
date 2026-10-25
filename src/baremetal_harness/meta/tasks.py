@@ -51,11 +51,12 @@ async def run_task(
     tools: ToolRegistry | None,
     workspace,
     limits: RunLimits,
+    context_providers: tuple = (),
 ) -> TaskRun:
     """真模型跑一个任务，pass/fail = verifier 通过/耗尽（复用模块 1 语义）。"""
     loop = AgentLoop(
         provider, model, limits=limits, tools=tools, workspace=workspace,
-        verifier=task.verifier,
+        verifier=task.verifier, context_providers=context_providers,
     )
     result = await loop.run(task.prompt)
     return TaskRun(task.task_id, result.status is RunStatus.COMPLETED, result)

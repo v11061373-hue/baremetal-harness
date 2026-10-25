@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
+from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.context.types import ContextSource
 from baremetal_harness.meta.evolve import MAX_RULE_CHARS
-from baremetal_harness.meta.tasks import FailureTrace
+from baremetal_harness.meta.tasks import EvolutionTask, FailureTrace, TaskRun, run_task
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,3 +38,24 @@ def propose_candidates(
         ScaffoldState((*state.rules, " ".join(reasons[:n])[:MAX_RULE_CHARS]))
         for n in range(1, len(reasons) + 1)
     )
+
+
+async def evaluate_state(
+    state: ScaffoldState,
+    tasks: tuple[EvolutionTask, ...],
+    *,
+    provider,
+    model: str,
+    tools,
+    workspace,
+    limits: RunLimits,
+) -> tuple[TaskRun, ...]:
+    """离线评测：注入 state.rules → run_task，返回 TaskRun（含 RunResult）。"""
+    return tuple([
+        await run_task(
+            task, provider=provider, model=model, tools=tools,
+            workspace=workspace, limits=limits,
+            context_providers=(RulesProvider(state.rules),),
+        )
+        for task in tasks
+    ])

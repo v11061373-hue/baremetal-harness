@@ -1,6 +1,6 @@
 # BareMetal Harness
 
-> 自改进终端 AI Agent Harness —— Σ-RSI（scaffold 级分支搜索自改进）+ 评测迭代闭环 + 确定性外壳；长期记忆（BM25 + 半衰期 + 去重）、命令护栏、子 agent 编排；零 Agent 框架依赖，唯一第三方依赖是 `httpx`。
+> 自改进终端 AI Agent Harness —— Σ-RSI（scaffold 级分支搜索自改进）+ 评测迭代 + agent 自迭代闭环 + 确定性外壳；长期记忆（BM25 + 半衰期 + 去重）、命令护栏、子 agent 编排；零 Agent 框架依赖，唯一第三方依赖是 `httpx`。
 
 <p align="center">
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -72,9 +72,9 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
   判据；Skill 加 `version`/`enabled` 字段并在发现时过滤禁用项；`.baremetal_harness/AGENTS.md`
   作为项目规则 required 源注入。
 
-### 评测迭代与 Σ-RSI
+### agent 自迭代与 Σ-RSI
 
-- **外层进化循环**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
+- **agent 自迭代（外层进化循环）**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
   跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行期。
 - **评测迭代闭环**：失败 run 提升为回归评测用例（`mine_eval_cases`），
   `eval_gate` 让候选不得让历史失败用例回退，`eval_suite_manifest` 把套件版本化进 git——

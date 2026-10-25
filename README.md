@@ -57,7 +57,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 
 ## 自改进与确定性
 
-### 确定性外壳（模块 1–4、6）
+### 确定性外壳
 
 - **验证回环**：`Verifier` 协议让任务输出先过验证再判完成，未达标自动重试，
   验证失败留下 `VerificationFailed` 审计事件，raiser 验证器触发 FAILED 而非崩溃。
@@ -72,7 +72,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
   判据；Skill 加 `version`/`enabled` 字段并在发现时过滤禁用项；`.baremetal_harness/AGENTS.md`
   作为项目规则 required 源注入。
 
-### 评测迭代与 Σ-RSI（模块 5、7、8、9）
+### 评测迭代与 Σ-RSI
 
 - **外层进化循环**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
   跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行期。
@@ -86,8 +86,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 - **沙箱分支搜索（Σ-RSI）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
   枚举候选脚手架状态 → 离线评测 → `weighted_gate` 选最优非回退者 → 原子写回 SKILL.md；
   规则经 `context_providers` 回注当前轮，`mine_rule_llm` 挖 LLM 规则接采样，
-  所有候选必经机械 gate，LLM 提案不自由注入。Σ 派（scaffold 级）RSI 闭环：
-  改的是脚手架（规则 + 评测套件），不是模型权重。
+  所有候选必经机械 gate，LLM 提案不自由注入。
 
 ### Σ-RSI 详细设计
 
@@ -101,8 +100,6 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 | 规则回注 | `context_providers` | 候选规则作 required context（priority 90）注入当前轮 run |
 | 防回退门 | `weighted_gate` | 无分数回退 + ≥1 任务提升才 promote（preserve-and-extend 分数版） |
 | 分支搜索 + 写回 | `branch_search` / `promote_state` | 枚举 N 候选选最优非回退，原子写 SKILL.md，git 可回滚 |
-
-价值点，从高到低：
 
 1. **机械 gate 兜底 LLM 提案** —— LLM 永不进评分/门控关键路径，挖出的幻觉规则一旦回退即被 `weighted_gate` 自动拒。
 2. **标尺不改** —— eval cases 是 ground truth，不进 `ScaffoldState`，自改进不自改评测标准。

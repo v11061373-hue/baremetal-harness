@@ -1,22 +1,27 @@
-"""评测迭代外循环，离线可跑：run → mine → gate → eval。
+"""评测迭代外循环，离线可跑：run → mine → gate → inject → eval。
 
 展示 baremetal_harness.meta 的评测迭代原语：
 EvolutionTask + Verifier → run_task → failure_traces → mine_rule →
-gate（promote-and-extend）→ mine_eval_cases → eval_gate → eval_suite_manifest。
+gate（promote-and-extend）→ inject_rule（SKILL.md + 记忆沉淀）→
+mine_eval_cases → eval_gate → eval_suite_manifest。
 
 运行：uv run python examples/eval_iterate.py
 """
 
 import asyncio
+import tempfile
+from pathlib import Path
 
 from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.core.messages import ResponseCompleted, TextDelta
+from baremetal_harness.memory.store import SqliteMemoryStore
 from baremetal_harness.meta import (
     EvolutionTask,
     eval_gate,
     eval_suite_manifest,
     failure_traces,
     gate,
+    inject_rule,
     mine_eval_cases,
     mine_rule,
     run_task,
@@ -66,6 +71,17 @@ async def main() -> None:
     candidate = {**baseline, "poem": True}  # 假设挖出的规则修好了 poem
     print("== gate ==")
     print(f"  decision={gate(baseline, candidate)}")
+
+    # inject：把挖出的规则写进 SKILL.md + 沉淀到记忆（模块 2 store.add）
+    # ponytail: store.py 的 sqlite 连接不 close，Windows 下 state.db 锁着，
+    # 临时目录清不掉；demo 用 ignore_cleanup_errors 绕开（非 demo 关注点）。
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        skills = Path(tmp) / "skills"
+        store = SqliteMemoryStore(Path(tmp) / "state.db", Path(tmp) / "src")
+        await store.initialize()
+        await inject_rule(rule, store=store, skills_dir=skills, run_id="demo")
+        print("== inject ==")
+        print((skills / "harness-rules" / "SKILL.md").read_text().rstrip())
 
     cases = mine_eval_cases(failures, tasks)
     print("== eval ==")

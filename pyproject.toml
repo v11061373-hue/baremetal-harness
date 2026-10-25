@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "baremetal-harness"
 version = "0.1.0"
-description = "A handwritten agent harness with no framework dependency"
+description = "Embeddable, self-improving terminal AI agent harness — eval-gated evolution loop, long-term memory, deterministic guardrails; no framework deps, httpx only."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["httpx>=0.28,<0.29"]

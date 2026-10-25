@@ -277,6 +277,8 @@ CI 在 Linux 和 macOS 上跑 lint、测试、离线验收，并从构建出的 
 - MCP 只实现 stdio 传输，没有 HTTP/SSE，也没有 resources/prompts
 - Scheduler 的跨进程认领依赖单个 SQLite 文件，不适用于多机部署
 - 没有浏览器自动化：`fetch_url` 抓取静态 HTML 并提取正文，不执行 JavaScript
+- `mine_rule` 当前是机械 fallback（拼接失败 reason 前 3 条），LLM 挖掘分支未接（设计文档 defer）
+- `harness-evolve` CLI 是 stub，任务套件接线未落；核心 API 是 `evolve()` 编程调用
 
 ## License
 

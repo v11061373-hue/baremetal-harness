@@ -73,9 +73,7 @@ async def main() -> None:
     print(f"  decision={gate(baseline, candidate)}")
 
     # inject：把挖出的规则写进 SKILL.md + 沉淀到记忆（模块 2 store.add）
-    # ponytail: store.py 的 sqlite 连接不 close，Windows 下 state.db 锁着，
-    # 临时目录清不掉；demo 用 ignore_cleanup_errors 绕开（非 demo 关注点）。
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+    with tempfile.TemporaryDirectory() as tmp:
         skills = Path(tmp) / "skills"
         store = SqliteMemoryStore(Path(tmp) / "state.db", Path(tmp) / "src")
         await store.initialize()

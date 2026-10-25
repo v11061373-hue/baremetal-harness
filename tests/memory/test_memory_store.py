@@ -1,4 +1,7 @@
+import sqlite3
 from datetime import UTC, datetime
+
+import pytest
 
 from baremetal_harness.memory.consolidation import ConsolidationAction, MemoryCandidate
 from baremetal_harness.memory.store import SqliteMemoryStore
@@ -100,3 +103,12 @@ async def test_add_supersedes_on_correction(tmp_path) -> None:
     ids = [r.memory_id for r in await store.search("python")]
     assert new_id in ids
     assert first_id not in ids
+
+
+def test_connect_closes_connection_on_exit(tmp_path) -> None:
+    store = SqliteMemoryStore(tmp_path / "m.db", tmp_path / "src")
+    cm = store._connect()
+    connection = cm.__enter__()
+    cm.__exit__(None, None, None)
+    with pytest.raises(sqlite3.ProgrammingError):
+        connection.execute("SELECT 1")

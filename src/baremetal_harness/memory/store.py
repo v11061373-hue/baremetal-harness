@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 import uuid
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -70,10 +71,15 @@ class SqliteMemoryStore:
         self.secret_patterns = tuple(re.compile(pattern) for pattern in secret_patterns)
         self.consolidator = MemoryConsolidator()
 
-    def _connect(self) -> sqlite3.Connection:
+    @contextmanager
+    def _connect(self):
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        try:
+            with connection:  # 保留事务 commit/rollback 语义
+                yield connection
+        finally:
+            connection.close()
 
     async def initialize(self) -> None:
         return await asyncio.to_thread(self._initialize_blocking)

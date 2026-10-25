@@ -3,9 +3,22 @@ from pathlib import Path
 
 from baremetal_harness.memory.consolidation import MemoryCandidate
 from baremetal_harness.memory.store import SqliteMemoryStore
+from baremetal_harness.meta.tasks import FailureTrace
 
 MAX_RULE_CHARS = 2000
 RULES_SKILL_NAME = "harness-rules"
+
+
+def mine_rule(client, failures: tuple[FailureTrace, ...]) -> str | None:
+    """挖一条通用规则。机械 fallback：拼接 reason（前 3 条）。
+
+    `client` 保留给未来 LLM 提取（设计文档 §一.7 mine 可选）；本次不接，
+    因为 LLM 分支依赖真模型、无离线测试。
+    """
+    if not failures:
+        return None
+    rule = " ".join(f.reason for f in failures[:3])
+    return rule[:MAX_RULE_CHARS]
 
 
 @dataclass(frozen=True, slots=True)

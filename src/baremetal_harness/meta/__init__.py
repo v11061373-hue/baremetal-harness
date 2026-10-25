@@ -20,6 +20,15 @@ from baremetal_harness.meta.scoring import (
     score_run,
     weighted_gate,
 )
+from baremetal_harness.meta.search import (
+    RulesProvider,
+    ScaffoldState,
+    SearchStep,
+    branch_search,
+    evaluate_state,
+    promote_state,
+    propose_candidates,
+)
 from baremetal_harness.meta.tasks import (
     EvalPoint,
     EvolutionTask,
@@ -50,6 +59,13 @@ __all__ = [
     "weighted_gate",
     "heuristic_weights",
     "cap_points",
+    "ScaffoldState",
+    "RulesProvider",
+    "propose_candidates",
+    "evaluate_state",
+    "SearchStep",
+    "branch_search",
+    "promote_state",
     "mine_eval_cases",
     "eval_gate",
     "eval_suite_manifest",

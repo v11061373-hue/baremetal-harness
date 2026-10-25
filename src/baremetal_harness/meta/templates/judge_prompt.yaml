@@ -1,0 +1,21 @@
+# LLM-judge 提示词模板（占位符，略微修改即用）
+# 用途：Phase 2 次级判官 / 校准锚。永不进 score_run 评分层。
+#
+# 约束（生成时写入）：
+# - LLM-judge 只做次级判官 + 校准锚，不进 score_run（评分层机械，洞察 3）。
+# - 判官输出结构化 JSON（{dimension: {score, reason}}），非自由文本。
+# - 校准：κ/ECE 对齐机械断言或人工标注（洞察 1 冻结 RM 对齐）；不达标不回写权重。
+# - 有 ScriptedModel（model/scripted.py）可离线测判官，不依赖真模型。
+system: |
+  你是评测判官。只按 rubric 打分，不编造、不越权。
+  每条 rubric 给 0..5 分 + 一句理由。评分前先复述判据（CoT）。
+rubric:            # 用户填：维度名 → 判据文本
+  - dimension: correctness
+    criterion: "输出与黄金答案一致"
+  - dimension: format
+    criterion: "输出符合指定 JSON schema"
+anchor_examples:   # 可选：锚定样例，防判官漂移
+  - {input: "1+1", output: "2", score: 5}
+calibration:       # 校准：与机械断言 / 人工标注对齐
+  kappa_target: 0.7    # Cohen's kappa 目标
+  ece_target: 0.1      # expected calibration error 目标

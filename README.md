@@ -1,6 +1,6 @@
 # BareMetal Harness
 
-> 自改进终端 AI Agent Harness —— 长期记忆（BM25 + 半衰期 + 去重）、确定性命令护栏、子 agent 编排、外层进化循环；零 Agent 框架依赖，运行时只有 `httpx` 一个第三方库。
+> 自改进终端 AI Agent Harness —— 长期记忆（BM25 + 半衰期 + 去重）、确定性命令护栏、子 agent 编排、外层进化循环；零 Agent 框架依赖，唯一第三方依赖是 `httpx`。
 
 <p align="center">
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
@@ -10,7 +10,7 @@
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
-BareMetal Harness 是一个可嵌入的评测迭代 Agent 运行时——类 Claude Code 形态，但作为库而非产品：Agent Loop、工具、记忆、权限、评测、自迭代全由仓库代码实现，零框架依赖。
+BareMetal Harness 是一个可嵌入的评测迭代 Agent harness——类 Claude Code 形态，但作为库而非产品：Agent Loop、工具、记忆、权限、评测、自迭代全由仓库代码实现，零框架依赖。
 Agent Loop、Tool Runtime、Context 预算、长期记忆、Planning、Permission、Sandbox、
 Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由仓库代码实现，
 不依赖任何 Agent 框架或厂商 SDK。要求 Python 3.12+；测试、Evals 与示例完全离线，
@@ -25,7 +25,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 
 基于 `httpx` 直连大模型 HTTP 流式接口，手写 Agent Loop 显式状态机、工具调用组装与
 执行预算控制，将模型交互、工具执行、权限审批、持久化与审计串成一条完整链路。
-核心运行时仅依赖 `httpx` 一个第三方库，覆盖 583 项自动化测试。
+核心运行期仅依赖 `httpx` 一个第三方库，覆盖 583 项自动化测试。
 
 **② 能力声明与三级审批**
 
@@ -69,7 +69,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
   等破坏性命令，在工具执行前拦截（fail-open），配合 turns / tool_calls / timeout
   三层预算门，超限 emit `BudgetExceeded`，拦截 emit `PermissionEvaluated`。
 - **外层进化循环（模块 5）**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
-  跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行时。
+  跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行期。
 - **子 agent 与资产治理（模块 6）**：`SubagentSpec.success_criteria` 注入 done-when
   判据；Skill 加 `version`/`enabled` 字段并在发现时过滤禁用项；`.baremetal_harness/AGENTS.md`
   作为项目规则 required 源注入。

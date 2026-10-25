@@ -1,4 +1,4 @@
-"""BareMetal Harness — 可嵌入的评测迭代 Agent 运行时。
+"""BareMetal Harness — 可嵌入的评测迭代 Agent harness。
 
 两条公开面：
 - 嵌入：`create_app` + `run_prompt`，进程内当库用。

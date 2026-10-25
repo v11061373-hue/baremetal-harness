@@ -11,6 +11,7 @@ from baremetal_harness.meta.evolve import (
     gate,
     inject_rule,
     mine_rule,
+    mine_rule_llm,
 )
 from baremetal_harness.meta.loop import EvolutionMetrics, evolve
 from baremetal_harness.meta.scoring import (
@@ -40,6 +41,7 @@ __all__ = [
     "evolve",
     "EvolutionMetrics",
     "mine_rule",
+    "mine_rule_llm",
     "gate",
     "GateDecision",
     "build_rule_skill",

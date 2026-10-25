@@ -1,6 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from baremetal_harness.core.messages import (
+    Message,
+    ModelRequest,
+    TextContent,
+    TextDelta,
+)
 from baremetal_harness.memory.consolidation import MemoryCandidate
 from baremetal_harness.memory.store import SqliteMemoryStore
 from baremetal_harness.meta.tasks import FailureTrace
@@ -19,6 +25,22 @@ def mine_rule(client, failures: tuple[FailureTrace, ...]) -> str | None:
         return None
     rule = " ".join(f.reason for f in failures[:3])
     return rule[:MAX_RULE_CHARS]
+
+
+async def mine_rule_llm(client, failures: tuple[FailureTrace, ...]) -> str | None:
+    """LLM 分支：拼失败 reason → client 提案规则文本 → 截断 MAX_RULE_CHARS。"""
+    if not failures:
+        return None
+    prompt = "Mine one general rule from these failures:\n" + "\n".join(
+        f"- [{f.task_id}] {f.reason}" for f in failures[:3]
+    )
+    request = ModelRequest("rule-miner", (Message("user", (TextContent(prompt),)),))
+    text = ""
+    async for event in client.stream(request):
+        if isinstance(event, TextDelta):
+            text += event.text
+    rule = text.strip()
+    return rule[:MAX_RULE_CHARS] if rule else None
 
 
 @dataclass(frozen=True, slots=True)

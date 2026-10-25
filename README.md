@@ -79,10 +79,11 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 - **评测体系（模块 8）**：`score_run` 给单次 run 打分，`weighted_gate` 判候选 promote，
   `heuristic_weights` 启发式赋权，`cap_points` 反 Goodhart（硬上限 + 权重降序截断）。
   评分层纯机械——只跑 `evaluate_assertion`，不引入 LLM-judge，规避评分幻觉与不可复现。
-- **沙箱分支搜索（模块 9）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
+- **沙箱分支搜索（模块 9，Σ-RSI）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
   枚举候选脚手架状态 → 离线评测 → `weighted_gate` 选最优非回退者 → 原子写回 SKILL.md；
   规则经 `context_providers` 回注当前轮，`mine_rule_llm` 挖 LLM 规则接采样，
-  所有候选必经机械 gate，LLM 提案不自由注入。
+  所有候选必经机械 gate，LLM 提案不自由注入。Σ 派（scaffold 级）RSI 闭环：
+  改的是脚手架（规则 + 评测套件），不是模型权重。
 
 用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
 Verifier 就是「做到什么算对」的机械判据；② run-mine-gate-inject 跑失败、挖规则、注入该项目 `skills/`；
@@ -112,7 +113,7 @@ runs = {t.task_id: await run_task(t, provider=..., model="fake", tools=None, wor
 rule = mine_rule(None, failure_traces(tuple(r for r in runs.values() if not r.passed)))
 ```
 
-完整可跑示例：[`examples/embed.py`](examples/embed.py)、[`examples/eval_iterate.py`](examples/eval_iterate.py)。
+完整可跑示例：[`examples/embed.py`](examples/embed.py)、[`examples/eval_iterate.py`](examples/eval_iterate.py)、[`examples/branch_search_live.py`](examples/branch_search_live.py)（Σ-RSI，接真模型）。
 
 ## 架构
 

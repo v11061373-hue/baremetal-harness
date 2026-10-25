@@ -47,6 +47,8 @@ def _strength(record: MemoryRecord, now: datetime) -> float:
         created = datetime.fromisoformat(record.created_at)
     except ValueError:
         return 1.0
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=UTC)
     age_days = max(0.0, (now - created).total_seconds() / 86400.0)
     return 0.5 ** (age_days / _category_half_life(record))
 

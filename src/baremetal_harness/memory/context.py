@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from baremetal_harness.context.builder import DEFAULT_CONTEXT_PRIORITIES
 from baremetal_harness.context.types import ContextSource
 from baremetal_harness.memory.store import SqliteMemoryStore
@@ -8,8 +10,10 @@ class MemoryContextSource:
         self.store = store
         self.limit = limit
 
-    async def build(self, query: str) -> ContextSource:
-        records = await self.store.search(query, limit=self.limit)
+    async def build(
+        self, query: str, *, now: datetime | None = None
+    ) -> ContextSource:
+        records = await self.store.search(query, limit=self.limit, now=now)
         text = "\n".join(
             f"[{record.memory_id}] source={record.source_ref}\n{record.text}"
             for record in records

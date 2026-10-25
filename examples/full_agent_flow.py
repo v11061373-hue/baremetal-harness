@@ -102,8 +102,8 @@ Inspect evidence before writing release notes.
                     "memory-1",
                     "remember",
                     (
-                        '{"memory_id":"note-1","text":"Artifacts require explicit apply",'
-                        '"source_ref":"demo:notes.txt","tags":["safety"]}'
+                        '{"text":"Artifacts require explicit apply",'
+                        '"tags":["safety"]}'
                     ),
                 ),
                 tool_turn(

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 from baremetal_harness.memory.store import SqliteMemoryStore
@@ -17,5 +18,7 @@ async def test_memory_round_trip_and_search(tmp_path: Path) -> None:
 
     await store.put(memory)
 
-    assert await store.search("python project") == (memory,)
+    assert await store.search(
+        "python project", now=datetime(2026, 8, 1, tzinfo=UTC)
+    ) == (memory,)
 

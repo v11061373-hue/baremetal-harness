@@ -67,6 +67,14 @@ async def test_search_prunes_stale(tmp_path) -> None:
     assert [r.memory_id for r in results] == []
 
 
+async def test_search_naive_created_at_does_not_crash(tmp_path) -> None:
+    store = SqliteMemoryStore(tmp_path / "m.db", tmp_path / "src")
+    await store.initialize()
+    await store.put(_record("naive", "python memory", "2026-01-01T00:00:00"))
+    results = await store.search("python memory", now=datetime(2026, 2, 1, tzinfo=UTC))
+    assert [r.memory_id for r in results] == ["naive"]
+
+
 async def test_add_dedups_exact_duplicate(tmp_path) -> None:
     store = SqliteMemoryStore(tmp_path / "m.db", tmp_path / "src")
     await store.initialize()

@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 from baremetal_harness.memory.context import MemoryContextSource
@@ -25,7 +26,9 @@ async def test_search_orders_by_score_then_recency(tmp_path: Path) -> None:
     await store.put(older)
     await store.put(newer)
 
-    assert await store.search("python") == (newer, older)
+    assert await store.search(
+        "python", now=datetime(2026, 8, 1, tzinfo=UTC)
+    ) == (newer, older)
 
 
 async def test_large_source_is_stored_by_hash(tmp_path: Path) -> None:
@@ -57,7 +60,9 @@ async def test_memory_context_preserves_provenance(tmp_path: Path) -> None:
         )
     )
 
-    source = await MemoryContextSource(store, limit=3).build("python")
+    source = await MemoryContextSource(store, limit=3).build(
+        "python", now=datetime(2026, 8, 1, tzinfo=UTC)
+    )
 
     assert source.source_id == "memory"
     assert "mem-1" in source.text

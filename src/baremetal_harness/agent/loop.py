@@ -265,7 +265,24 @@ class AgentLoop:
                 )
 
             tool_calls_used = 0
+            started = self.clock()
             for turn in range(1, self.limits.max_turns + 1):
+                if (
+                    turn > 1
+                    and (self.clock() - started).total_seconds()
+                    > self.limits.timeout_seconds
+                ):
+                    await emit(BudgetExceeded("timeout"))
+                    status = transition(status, RunStatus.EXHAUSTED)
+                    await checkpoint()
+                    return RunResult(
+                        run_id,
+                        session_id,
+                        status,
+                        "",
+                        tuple(messages),
+                        tuple(events),
+                    )
                 if status in {
                     RunStatus.RECORDING_RESULTS,
                     RunStatus.RECORDING_TOOL_ERROR,
@@ -391,6 +408,7 @@ class AgentLoop:
                     )
                 calls = assembler.complete()
                 if tool_calls_used + len(calls) > self.limits.max_tool_calls:
+                    await emit(BudgetExceeded("tool_calls"))
                     status = transition(status, RunStatus.EXHAUSTED)
                     await checkpoint()
                     return RunResult(
@@ -489,6 +507,7 @@ class AgentLoop:
                     await checkpoint()
                 if status is RunStatus.EXECUTING_TOOLS:
                     status = transition(status, RunStatus.RECORDING_RESULTS)
+            await emit(BudgetExceeded("turns"))
             status = transition(status, RunStatus.EXHAUSTED)
             await checkpoint()
             return RunResult(

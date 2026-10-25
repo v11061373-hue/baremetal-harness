@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from baremetal_harness.memory.consolidation import ConsolidationAction, MemoryCandidate
 from baremetal_harness.memory.store import SqliteMemoryStore
 from baremetal_harness.memory.types import MemoryRecord
 
@@ -64,3 +65,30 @@ async def test_search_prunes_stale(tmp_path) -> None:
     await store.put(_record("ancient", "python memory", "2020-01-01T00:00:00+00:00"))
     results = await store.search("python memory", now=datetime(2026, 2, 1, tzinfo=UTC))
     assert [r.memory_id for r in results] == []
+
+
+async def test_add_dedups_exact_duplicate(tmp_path) -> None:
+    store = SqliteMemoryStore(tmp_path / "m.db", tmp_path / "src")
+    await store.initialize()
+    cand = MemoryCandidate("python memory", "inline-sha256:x", ())
+    action1, id1 = await store.add(cand)
+    action2, id2 = await store.add(cand)
+    assert action1 is ConsolidationAction.CREATE
+    assert action2 is ConsolidationAction.NOOP
+    assert id1 == id2
+
+
+async def test_add_supersedes_on_correction(tmp_path) -> None:
+    store = SqliteMemoryStore(tmp_path / "m.db", tmp_path / "src")
+    await store.initialize()
+    _, first_id = await store.add(MemoryCandidate("python is fast", "inline-sha256:x", ()))
+    action, new_id = await store.add(
+        MemoryCandidate(
+            "python is fast but GIL-bound", "inline-sha256:y", (),
+            correction_of=first_id,
+        )
+    )
+    assert action is ConsolidationAction.SUPERSEDE
+    ids = [r.memory_id for r in await store.search("python")]
+    assert new_id in ids
+    assert first_id not in ids

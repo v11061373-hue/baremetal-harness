@@ -3,9 +3,15 @@ import hashlib
 import json
 import re
 import sqlite3
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
+from baremetal_harness.memory.consolidation import (
+    ConsolidationAction,
+    MemoryCandidate,
+    MemoryConsolidator,
+)
 from baremetal_harness.memory.search import BM25, normalize
 from baremetal_harness.memory.types import MemoryRecord
 
@@ -60,6 +66,7 @@ class SqliteMemoryStore:
         self.database_path = database_path
         self.source_directory = source_directory
         self.secret_patterns = tuple(re.compile(pattern) for pattern in secret_patterns)
+        self.consolidator = MemoryConsolidator()
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database_path)
@@ -191,3 +198,52 @@ class SqliteMemoryStore:
             reverse=True,
         )
         return tuple(record for _, record in scored[:limit])
+
+    async def add(
+        self, candidate: MemoryCandidate
+    ) -> tuple[ConsolidationAction, str]:
+        return await asyncio.to_thread(self._add_blocking, candidate)
+
+    def _add_blocking(
+        self, candidate: MemoryCandidate
+    ) -> tuple[ConsolidationAction, str]:
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM memories WHERE normalized_text = ? OR memory_id = ?",
+                (normalize(candidate.text), candidate.correction_of),
+            ).fetchall()
+        matches = tuple(
+            MemoryRecord(
+                row["memory_id"],
+                row["text"],
+                row["source_ref"],
+                tuple(json.loads(row["tags_json"])),
+                row["created_at"],
+                row["supersedes"],
+            )
+            for row in rows
+        )
+        action = self.consolidator.decide(candidate, matches)
+        if action is ConsolidationAction.NOOP:
+            existing = next(
+                (
+                    m
+                    for m in matches
+                    if normalize(m.text) == normalize(candidate.text)
+                    and m.source_ref == candidate.source_ref
+                ),
+                None,
+            )
+            assert existing is not None  # decide() 已保证存在 match
+            return action, existing.memory_id
+        memory_id = str(uuid.uuid4())
+        record = MemoryRecord(
+            memory_id,
+            candidate.text,
+            candidate.source_ref,
+            candidate.tags,
+            datetime.now(UTC).isoformat(),
+            candidate.correction_of if action is ConsolidationAction.SUPERSEDE else None,
+        )
+        self._put_blocking(record)
+        return action, memory_id

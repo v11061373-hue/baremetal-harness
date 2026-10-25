@@ -10,13 +10,16 @@
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
-BareMetal Harness 是一个从零实现的通用任务 Agent 运行系统，形态类似 Claude Code。
+BareMetal Harness 是一个可嵌入的通用任务 Agent 运行时——类 Claude Code 形态，但作为库而非产品：Agent Loop、工具、记忆、权限、评测、自迭代全由仓库代码实现，零框架依赖。
 Agent Loop、Tool Runtime、Context 预算、长期记忆、Planning、Permission、Sandbox、
 Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由仓库代码实现，
 不依赖任何 Agent 框架或厂商 SDK。要求 Python 3.12+；测试、Evals 与示例完全离线，
 不需要 API Key 即可跑通全链路。
 
 ## 核心能力
+
+可嵌入（进程内库）、可插拔（`ModelProvider`/`Verifier`/`PermissionPolicy` 等均为 Protocol，可替换）、
+项目级（规则/技能/评测随 `.baremetal_harness/` 进 git）。
 
 **① 完整运行链路，零框架依赖**
 
@@ -73,6 +76,10 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 - **评测迭代闭环（模块 7）**：失败 run 提升为回归评测用例（`mine_eval_cases`），
   `eval_gate` 让候选不得让历史失败用例回退，`eval_suite_manifest` 把套件版本化进 git——
   评测套件随运行单调增长，自改进不自改。
+
+用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
+Verifier 就是「做到什么算对」的机械判据；② run-mine-gate-inject 跑失败、挖规则、注入该项目 `skills/`；
+③ 失败沉淀回归用例进 git，`eval_gate` 让未来候选不得回退。
 
 ## 架构
 

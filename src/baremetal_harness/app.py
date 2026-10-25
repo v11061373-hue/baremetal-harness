@@ -38,6 +38,7 @@ from baremetal_harness.permissions.approval import (
     CliApprovalProvider,
     UnattendedApprovalProvider,
 )
+from baremetal_harness.permissions.guard import DestructiveCommandGuard
 from baremetal_harness.permissions.policy import DefaultPermissionPolicy
 from baremetal_harness.permissions.types import ApprovalResolution, PermissionRequest
 from baremetal_harness.planning.store import PlanStore
@@ -671,6 +672,7 @@ async def create_app(
             config.reserve_output_tokens,
         )
         permission_policy = DefaultPermissionPolicy()
+        guard = DestructiveCommandGuard()
         resolved_approval = approval_provider or CliApprovalProvider()
         skills = discover_skills(config.workspace)
         context_providers = (
@@ -744,6 +746,7 @@ async def create_app(
             context_builder=context_builder,
             context_budget=context_budget,
             permission_policy=permission_policy,
+            guard=guard,
             approval_provider=resolved_approval,
             trace_sinks=(trace_sink,),
             context_providers=context_providers,
@@ -772,6 +775,7 @@ async def create_app(
             context_builder=context_builder,
             context_budget=context_budget,
             permission_policy=permission_policy,
+            guard=guard,
             approval_provider=UnattendedApprovalProvider(unattended_approved_tools),
             trace_sinks=(trace_sink,),
             context_providers=context_providers,

@@ -23,6 +23,8 @@ from baremetal_harness.core.messages import (
 from baremetal_harness.model.base import ModelProvider
 from baremetal_harness.observability.trace import TraceSink
 from baremetal_harness.permissions.approval import InMemoryApprovalProvider
+from baremetal_harness.permissions.audit import digest_arguments
+from baremetal_harness.permissions.guard import DestructiveCommandGuard
 from baremetal_harness.permissions.policy import DefaultPermissionPolicy
 from baremetal_harness.permissions.types import PermissionDecision, PermissionRequest
 from baremetal_harness.sessions.checkpoints import FileCheckpointStore
@@ -145,6 +147,7 @@ class AgentLoop:
         context_builder: ContextBuilder | None = None,
         context_budget: ContextBudget | None = None,
         permission_policy: DefaultPermissionPolicy | None = None,
+        guard: DestructiveCommandGuard | None = None,
         approval_provider: InMemoryApprovalProvider | None = None,
         trace_sinks: tuple[TraceSink, ...] = (),
         context_providers: tuple["ContextProvider", ...] = (),
@@ -169,6 +172,7 @@ class AgentLoop:
         self.context_builder = context_builder
         self.context_budget = context_budget
         self.permission_policy = permission_policy
+        self.guard = guard
         self.approval_provider = approval_provider
         self.trace_sinks = trace_sinks
         self.context_providers = context_providers
@@ -430,7 +434,26 @@ class AgentLoop:
                 )
                 for call in calls:
                     allowed = True
-                    if self.permission_policy is not None:
+                    digest = digest_arguments(call.arguments)
+                    if self.guard is not None:
+                        veto = self.guard.evaluate(
+                            tool_name=call.name,
+                            arguments=call.arguments,
+                        )
+                        if (
+                            veto is not None
+                            and veto.decision is PermissionDecision.DENY
+                        ):
+                            allowed = False
+                            await emit(
+                                PermissionEvaluated(
+                                    call.name,
+                                    veto.decision.value,
+                                    veto.reason,
+                                    digest,
+                                )
+                            )
+                    if allowed and self.permission_policy is not None:
                         registered = self.tools.get(call.name)
                         evaluation = self.permission_policy.evaluate(
                             tool_name=call.name,
@@ -439,6 +462,14 @@ class AgentLoop:
                         )
                         if evaluation.decision is PermissionDecision.DENY:
                             allowed = False
+                            await emit(
+                                PermissionEvaluated(
+                                    call.name,
+                                    evaluation.decision.value,
+                                    evaluation.reason,
+                                    digest,
+                                )
+                            )
                         elif evaluation.decision is PermissionDecision.ASK:
                             if status is RunStatus.VALIDATING_TOOLS:
                                 status = transition(
@@ -476,6 +507,15 @@ class AgentLoop:
                                     request_id,
                                     allowed,
                                     resolution_reason,
+                                )
+                            )
+                        else:
+                            await emit(
+                                PermissionEvaluated(
+                                    call.name,
+                                    evaluation.decision.value,
+                                    evaluation.reason,
+                                    digest,
                                 )
                             )
                     decisions.append((call, allowed))

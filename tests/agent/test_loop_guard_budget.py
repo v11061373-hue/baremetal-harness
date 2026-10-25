@@ -11,6 +11,8 @@ from baremetal_harness.agent.state import RunStatus
 from baremetal_harness.core.events import EventEnvelope
 from baremetal_harness.core.messages import ResponseCompleted, ToolCallDelta
 from baremetal_harness.model.scripted import ScriptedModel
+from baremetal_harness.permissions.guard import DestructiveCommandGuard
+from baremetal_harness.permissions.policy import DefaultPermissionPolicy
 from baremetal_harness.sessions.events import JsonlEventStore
 from baremetal_harness.tools.registry import ToolRegistry
 from baremetal_harness.tools.types import RegisteredTool, ToolCapabilities, ToolSpec
@@ -130,5 +132,58 @@ async def test_budget_exceeded_timeout_emitted() -> None:
     assert result.status is RunStatus.EXHAUSTED
     assert any(
         isinstance(e.payload, BudgetExceeded) and e.payload.kind == "timeout"
+        for e in result.events
+    )
+
+
+def _run_command_registry() -> ToolRegistry:
+    async def run_command(arguments, context) -> str:
+        return "executed"
+
+    registry = ToolRegistry()
+    registry.register(
+        RegisteredTool(
+            ToolSpec(
+                "run_command",
+                "Run a shell command",
+                {
+                    "type": "object",
+                    "properties": {
+                        "argv": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["argv"],
+                    "additionalProperties": False,
+                },
+                ToolCapabilities(),
+            ),
+            run_command,
+        )
+    )
+    return registry
+
+
+async def test_guard_vetoes_destructive_command() -> None:
+    provider = ScriptedModel(
+        (
+            (
+                ToolCallDelta(0, "call-1", "run_command", '{"argv": ["rm", "-rf", "/"]}'),
+                ResponseCompleted("tool_calls"),
+            ),
+        )
+    )
+    loop = AgentLoop(
+        provider,
+        "fake",
+        tools=_run_command_registry(),
+        limits=RunLimits(max_turns=1),
+        guard=DestructiveCommandGuard(),
+        permission_policy=DefaultPermissionPolicy(),
+    )
+    result = await loop.run("clean up")
+    assert result.status is RunStatus.EXHAUSTED
+    assert any(
+        isinstance(e.payload, PermissionEvaluated)
+        and e.payload.decision == "deny"
+        and e.payload.tool_name == "run_command"
         for e in result.events
     )

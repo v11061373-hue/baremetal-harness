@@ -3,7 +3,11 @@ from pathlib import Path
 
 from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.context.types import ContextSource
-from baremetal_harness.meta.evolve import MAX_RULE_CHARS, build_rule_skill
+from baremetal_harness.meta.evolve import (
+    MAX_RULE_CHARS,
+    build_rule_skill,
+    mine_rule_llm,
+)
 from baremetal_harness.meta.scoring import score_run, weighted_gate
 from baremetal_harness.meta.tasks import (
     EvolutionTask,
@@ -85,8 +89,13 @@ async def branch_search(
     limits: RunLimits,
     initial: ScaffoldState | None = None,
     iterations: int = 5,
+    miner_client=None,
 ) -> tuple[SearchStep, ...]:
-    """沙箱分支搜索：propose → evaluate → weighted_gate → 选最优 promote。"""
+    """沙箱分支搜索：propose → evaluate → weighted_gate → 选最优 promote。
+
+    采样 = 机械 propose_candidates（粒度 1/2/3）+ 可选 LLM 提案（miner_client 非 None 时）。
+    LLM 候选同样过 weighted_gate，非自由注入。
+    """
     current = initial if initial is not None else ScaffoldState()
     steps: list[SearchStep] = []
     for _ in range(iterations):
@@ -99,9 +108,14 @@ async def branch_search(
             for t, r in zip(tasks, runs, strict=True)
         }
         failures = failure_traces(tuple(r for r in runs if not r.passed))
+        candidates = list(propose_candidates(current, failures))
+        if miner_client is not None:
+            llm_rule = await mine_rule_llm(miner_client, failures)
+            if llm_rule:
+                candidates.append(ScaffoldState((*current.rules, llm_rule)))
         best: ScaffoldState | None = None
         best_scores = scores
-        for candidate in propose_candidates(current, failures):
+        for candidate in candidates:
             cruns = await evaluate_state(
                 candidate, tasks, provider=provider, model=model, tools=tools,
                 workspace=workspace, limits=limits,

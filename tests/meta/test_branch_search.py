@@ -145,6 +145,28 @@ async def test_branch_search_rejects_regression() -> None:
     assert steps[-1].promoted is None
 
 
+async def test_branch_search_uses_miner_client() -> None:
+    run_model = ScriptedModel((
+        (TextDelta("6"), ResponseCompleted("stop")),
+        (TextDelta("42"), ResponseCompleted("stop")),
+        (TextDelta("42"), ResponseCompleted("stop")),
+    ))
+    miner = ScriptedModel(((TextDelta("use llm rule"), ResponseCompleted("stop")),))
+    task = EvolutionTask("math", "6*7", _Eq("42"), ())
+    steps = await branch_search(
+        (task,),
+        provider=run_model,
+        miner_client=miner,
+        model="m",
+        tools=None,
+        workspace=None,
+        limits=RunLimits(max_turns=1),
+        iterations=1,
+    )
+    assert len(miner.requests) == 1
+    assert steps[-1].promoted is not None
+
+
 def test_promote_state_writes_skill(tmp_path) -> None:
     promote_state(ScaffoldState(("r1",)), skills_dir=tmp_path)
     path = tmp_path / "harness-rules" / "SKILL.md"

@@ -10,7 +10,7 @@
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
-BareMetal Harness 是一个可嵌入的通用任务 Agent 运行时——类 Claude Code 形态，但作为库而非产品：Agent Loop、工具、记忆、权限、评测、自迭代全由仓库代码实现，零框架依赖。
+BareMetal Harness 是一个可嵌入的评测迭代 Agent 运行时——类 Claude Code 形态，但作为库而非产品：Agent Loop、工具、记忆、权限、评测、自迭代全由仓库代码实现，零框架依赖。
 Agent Loop、Tool Runtime、Context 预算、长期记忆、Planning、Permission、Sandbox、
 Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由仓库代码实现，
 不依赖任何 Agent 框架或厂商 SDK。要求 Python 3.12+；测试、Evals 与示例完全离线，
@@ -80,6 +80,32 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
 Verifier 就是「做到什么算对」的机械判据；② run-mine-gate-inject 跑失败、挖规则、注入该项目 `skills/`；
 ③ 失败沉淀回归用例进 git，`eval_gate` 让未来候选不得回退。
+
+## 嵌入与评测迭代
+
+两条公开面，均离线可跑，无需 API Key。
+
+**嵌入**（`create_app → run_prompt → aclose`）：
+
+```python
+from baremetal_harness import BareMetalHarnessConfig, create_app
+
+app = await create_app(config)          # 传 provider 可接任意 OpenAI 兼容端点
+result = await app.run_prompt("你的任务")
+await app.aclose()
+```
+
+**评测迭代**（`meta` 的 run-mine-gate-eval）：
+
+```python
+from baremetal_harness.meta import EvolutionTask, run_task, failure_traces, mine_rule
+
+tasks = (EvolutionTask("math", "6*7", CheckContains("42")),)
+runs = {t.task_id: await run_task(t, provider=..., model="fake", tools=None, workspace=None, limits=RunLimits(2, 2)) for t in tasks}
+rule = mine_rule(None, failure_traces(tuple(r for r in runs.values() if not r.passed)))
+```
+
+完整可跑示例：[`examples/embed.py`](examples/embed.py)、[`examples/eval_iterate.py`](examples/eval_iterate.py)。
 
 ## 架构
 

@@ -1,9 +1,17 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.context.types import ContextSource
-from baremetal_harness.meta.evolve import MAX_RULE_CHARS
-from baremetal_harness.meta.tasks import EvolutionTask, FailureTrace, TaskRun, run_task
+from baremetal_harness.meta.evolve import MAX_RULE_CHARS, build_rule_skill
+from baremetal_harness.meta.scoring import score_run, weighted_gate
+from baremetal_harness.meta.tasks import (
+    EvolutionTask,
+    FailureTrace,
+    TaskRun,
+    failure_traces,
+    run_task,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,3 +67,64 @@ async def evaluate_state(
         )
         for task in tasks
     ])
+
+
+@dataclass(frozen=True, slots=True)
+class SearchStep:
+    scores: dict[str, float]
+    promoted: ScaffoldState | None
+
+
+async def branch_search(
+    tasks: tuple[EvolutionTask, ...],
+    *,
+    provider,
+    model: str,
+    tools,
+    workspace,
+    limits: RunLimits,
+    initial: ScaffoldState | None = None,
+    iterations: int = 5,
+) -> tuple[SearchStep, ...]:
+    """沙箱分支搜索：propose → evaluate → weighted_gate → 选最优 promote。"""
+    current = initial if initial is not None else ScaffoldState()
+    steps: list[SearchStep] = []
+    for _ in range(iterations):
+        runs = await evaluate_state(
+            current, tasks, provider=provider, model=model, tools=tools,
+            workspace=workspace, limits=limits,
+        )
+        scores = {
+            t.task_id: score_run(t, r.result).score
+            for t, r in zip(tasks, runs, strict=True)
+        }
+        failures = failure_traces(tuple(r for r in runs if not r.passed))
+        best: ScaffoldState | None = None
+        best_scores = scores
+        for candidate in propose_candidates(current, failures):
+            cruns = await evaluate_state(
+                candidate, tasks, provider=provider, model=model, tools=tools,
+                workspace=workspace, limits=limits,
+            )
+            cscores = {
+                t.task_id: score_run(t, r.result).score
+                for t, r in zip(tasks, cruns, strict=True)
+            }
+            if (
+                weighted_gate(scores, cscores).promote
+                and sum(cscores.values()) > sum(best_scores.values())
+            ):
+                best, best_scores = candidate, cscores
+        if best is None:
+            steps.append(SearchStep(scores, None))
+            break
+        steps.append(SearchStep(best_scores, best))
+        current = best
+    return tuple(steps)
+
+
+def promote_state(state: ScaffoldState, *, skills_dir: Path) -> None:
+    """原子写回：rules → skills_dir/harness-rules/SKILL.md（复用 build_rule_skill）。"""
+    path = skills_dir / "harness-rules" / "SKILL.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(build_rule_skill(state.rules), encoding="utf-8")

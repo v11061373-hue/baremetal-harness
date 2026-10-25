@@ -1,9 +1,12 @@
 from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.core.messages import ResponseCompleted, TextDelta
+from baremetal_harness.meta.evolve import build_rule_skill
 from baremetal_harness.meta.search import (
     RulesProvider,
     ScaffoldState,
+    branch_search,
     evaluate_state,
+    promote_state,
     propose_candidates,
 )
 from baremetal_harness.meta.tasks import EvolutionTask, FailureTrace
@@ -61,6 +64,14 @@ class _Pass:
         return None
 
 
+class _Eq:
+    def __init__(self, expected: str) -> None:
+        self.expected = expected
+
+    async def verify(self, output: str, prompt: str) -> str | None:
+        return None if output.strip() == self.expected else f"want {self.expected}"
+
+
 async def test_evaluate_state_injects_rules() -> None:
     model = ScriptedModel(((TextDelta("ok"), ResponseCompleted("stop")),))
     task = EvolutionTask("t", "6*7", _Pass(), ())
@@ -77,3 +88,65 @@ async def test_evaluate_state_injects_rules() -> None:
     system = model.requests[-1].messages[0]
     assert system.role == "system"
     assert "rule-xyz" in system.content[0].text
+
+
+async def test_branch_search_promotes() -> None:
+    model = ScriptedModel((
+        (TextDelta("6"), ResponseCompleted("stop")),
+        (TextDelta("42"), ResponseCompleted("stop")),
+    ))
+    task = EvolutionTask("math", "6*7", _Eq("42"), ())
+    steps = await branch_search(
+        (task,),
+        provider=model,
+        model="m",
+        tools=None,
+        workspace=None,
+        limits=RunLimits(max_turns=1),
+        iterations=1,
+    )
+    assert steps[-1].promoted is not None
+    assert steps[-1].promoted.rules == ("want 42",)
+
+
+async def test_branch_search_no_improvement_stops() -> None:
+    model = ScriptedModel((
+        (TextDelta("6"), ResponseCompleted("stop")),
+        (TextDelta("6"), ResponseCompleted("stop")),
+    ))
+    task = EvolutionTask("math", "6*7", _Eq("42"), ())
+    steps = await branch_search(
+        (task,),
+        provider=model,
+        model="m",
+        tools=None,
+        workspace=None,
+        limits=RunLimits(max_turns=1),
+        iterations=1,
+    )
+    assert steps[-1].promoted is None
+
+
+async def test_branch_search_rejects_regression() -> None:
+    model = ScriptedModel((
+        (TextDelta("42"), ResponseCompleted("stop")),
+        (TextDelta("6"), ResponseCompleted("stop")),
+    ))
+    task = EvolutionTask("math", "6*7", _Eq("42"), ())
+    steps = await branch_search(
+        (task,),
+        provider=model,
+        model="m",
+        tools=None,
+        workspace=None,
+        limits=RunLimits(max_turns=1),
+        iterations=1,
+    )
+    assert steps[-1].promoted is None
+
+
+def test_promote_state_writes_skill(tmp_path) -> None:
+    promote_state(ScaffoldState(("r1",)), skills_dir=tmp_path)
+    path = tmp_path / "harness-rules" / "SKILL.md"
+    assert path.is_file()
+    assert path.read_text(encoding="utf-8") == build_rule_skill(("r1",))

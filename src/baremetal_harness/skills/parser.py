@@ -2,6 +2,10 @@ import re
 
 from baremetal_harness.skills.types import Skill
 
+_ALLOWED_FRONTMATTER_KEYS = frozenset(
+    {"name", "description", "triggers", "scope", "version", "enabled"}
+)
+
 
 class SkillParseError(ValueError):
     pass
@@ -35,7 +39,7 @@ class SkillParser:
             key, raw_value = line.split(":", 1)
             if key in values:
                 raise SkillParseError(f"duplicate key: {key}")
-            if key not in {"name", "description", "triggers", "scope"}:
+            if key not in _ALLOWED_FRONTMATTER_KEYS:
                 raise SkillParseError(f"unknown key: {key}")
             raw_value = raw_value.strip()
             if key == "triggers":
@@ -62,6 +66,8 @@ class SkillParser:
             isinstance(item, str) and item for item in triggers
         ):
             raise SkillParseError("invalid triggers")
+        version = str(values.get("version", "0.0.0"))
+        enabled = str(values.get("enabled", "true")).lower() != "false"
         return Skill(
             name,
             description,
@@ -69,4 +75,6 @@ class SkillParser:
             str(scope),
             body.strip(),
             source_id,
+            version=version,
+            enabled=enabled,
         )

@@ -305,7 +305,7 @@ def test_toml_integer_fields_accept_canonical_ascii_digits(
         '"baremetal_harness"."max_turns" = 16\n',
         "'baremetal_harness'.'max_turns' = 16\n",
         '[baremetal_harness]\n"max\\u005fturns" = 16\n',
-        '["mini\\u0063law"]\nmax_turns = 16\n',
+        '["baremetal\\u005fharness"]\nmax_turns = 16\n',
         'baremetal_harness."max\\u005fturns" = 16\n',
     ],
 )
@@ -330,7 +330,7 @@ def test_toml_integer_fields_accept_semantic_key_aliases(
         '"baremetal_harness"."max_turns" = 0x10\n',
         "'baremetal_harness'.'max_turns' = 0x10\n",
         '[baremetal_harness]\n"max\\u005fturns" = 0x10\n',
-        '["mini\\u0063law"]\nmax_turns = 0x10\n',
+        '["baremetal\\u005fharness"]\nmax_turns = 0x10\n',
         'baremetal_harness."max\\u005fturns" = 0x10\n',
     ],
 )

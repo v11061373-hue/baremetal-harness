@@ -3,14 +3,50 @@ import hashlib
 import json
 import re
 import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 
-from baremetal_harness.memory.search import memory_score, normalize
+from baremetal_harness.memory.search import BM25, normalize
 from baremetal_harness.memory.types import MemoryRecord
 
 
 class MemorySourceRejected(ValueError):
     pass
+
+
+CATEGORY_HALF_LIVES = {
+    "strategy": 38.0,
+    "fact": 24.0,
+    "assumption": 19.0,
+    "failure": 11.0,
+}
+DEFAULT_HALF_LIFE_DAYS = 30.0
+PRUNE_STRENGTH = 0.05
+OUTCOME_FAILED_TAG = "outcome:failed"
+
+
+def _category_half_life(record: MemoryRecord) -> float:
+    for tag in record.tags:
+        if tag.startswith("category:"):
+            return CATEGORY_HALF_LIVES.get(
+                tag.removeprefix("category:"), DEFAULT_HALF_LIFE_DAYS
+            )
+    if OUTCOME_FAILED_TAG in record.tags:
+        return CATEGORY_HALF_LIVES["failure"]
+    return DEFAULT_HALF_LIFE_DAYS
+
+
+def _strength(record: MemoryRecord, now: datetime) -> float:
+    try:
+        created = datetime.fromisoformat(record.created_at)
+    except ValueError:
+        return 1.0
+    age_days = max(0.0, (now - created).total_seconds() / 86400.0)
+    return 0.5 ** (age_days / _category_half_life(record))
+
+
+def _outcome_boost(record: MemoryRecord) -> float:
+    return 1.5 if OUTCOME_FAILED_TAG in record.tags else 1.0
 
 
 class SqliteMemoryStore:
@@ -110,19 +146,25 @@ class SqliteMemoryStore:
         query: str,
         *,
         limit: int = 10,
+        now: datetime | None = None,
     ) -> tuple[MemoryRecord, ...]:
-        return await asyncio.to_thread(self._search_blocking, query, limit=limit)
+        return await asyncio.to_thread(
+            self._search_blocking, query, limit=limit, now=now
+        )
 
     def _search_blocking(
         self,
         query: str,
         *,
         limit: int = 10,
+        now: datetime | None = None,
     ) -> tuple[MemoryRecord, ...]:
+        now = now or datetime.now(UTC)
         with self._connect() as connection:
             rows = connection.execute("SELECT * FROM memories").fetchall()
-        records = tuple(
-            MemoryRecord(
+
+        def _record(row) -> MemoryRecord:
+            return MemoryRecord(
                 row["memory_id"],
                 row["text"],
                 row["source_ref"],
@@ -130,19 +172,22 @@ class SqliteMemoryStore:
                 row["created_at"],
                 row["supersedes"],
             )
-            for row in rows
-        )
-        scored = [
-            (memory_score(record, query), record)
-            for record in records
-            if memory_score(record, query) > 0
-        ]
+
+        records = tuple(_record(row) for row in rows)
+        superseded = {r.supersedes for r in records if r.supersedes}
+        records = tuple(r for r in records if r.memory_id not in superseded)
+        bm25 = BM25()
+        bm25.fit(records)  # ponytail: O(N) refit per search; fine at hundreds, cache if slow
+        scored = []
+        for record in records:
+            strength = _strength(record, now)
+            if strength < PRUNE_STRENGTH:
+                continue
+            score = bm25.score(record, query) * strength * _outcome_boost(record)
+            if score > 0:
+                scored.append((score, record))
         scored.sort(
-            key=lambda item: (
-                item[0],
-                item[1].created_at,
-                item[1].memory_id,
-            ),
+            key=lambda item: (item[0], item[1].created_at, item[1].memory_id),
             reverse=True,
         )
         return tuple(record for _, record in scored[:limit])

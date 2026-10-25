@@ -14,8 +14,6 @@ _ASSERTIONS = {
     "tool_called",
     "tool_not_called",
     "approval_count",
-    "sandbox_violation_count",
-    "checkpoint_count",
     "event_sequence_contains",
     "no_secret_in_trace",
 }

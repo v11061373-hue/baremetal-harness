@@ -33,3 +33,25 @@ def test_loader_rejects_duplicate_ids(tmp_path: Path) -> None:
     path.write_text(json.dumps([case, case]))
     with pytest.raises(EvalLoadError, match="duplicate"):
         load_eval_cases(path)
+
+
+def test_loader_rejects_unsourced_assertion_kinds(tmp_path: Path) -> None:
+    import json
+
+    path = tmp_path / "cases.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "unsourced",
+                    "prompt": "x",
+                    "script": [{"type": "complete", "reason": "stop"}],
+                    "assertions": [
+                        {"type": "sandbox_violation_count", "value": 0}
+                    ],
+                }
+            ]
+        )
+    )
+    with pytest.raises(EvalLoadError, match="unknown eval assertion"):
+        load_eval_cases(path)

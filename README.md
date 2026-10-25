@@ -55,9 +55,9 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 限流恢复、认证失败、网络异常等场景。基础离线 Evals 共 10 项全部通过，覆盖文本流拼接、
 完成状态、事件顺序与中文输出验证，并接入 CI 实现系统行为的持续可重复验证。
 
-## 自改进与确定性（七模块优化）
+## 自改进与确定性（九模块优化）
 
-在基础能力之上，七个模块补全了确定性外壳与自改进路径：
+在基础能力之上，九个模块补全了确定性外壳、评测体系与自改进路径：
 
 - **验证回环（模块 1）**：`Verifier` 协议让任务输出先过验证再判完成，未达标自动重试，
   验证失败留下 `VerificationFailed` 审计事件，raiser 验证器触发 FAILED 而非崩溃。
@@ -76,6 +76,13 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 - **评测迭代闭环（模块 7）**：失败 run 提升为回归评测用例（`mine_eval_cases`），
   `eval_gate` 让候选不得让历史失败用例回退，`eval_suite_manifest` 把套件版本化进 git——
   评测套件随运行单调增长，自改进不自改。
+- **评测体系（模块 8）**：`score_run` 给单次 run 打分，`weighted_gate` 判候选 promote，
+  `heuristic_weights` 启发式赋权，`cap_points` 反 Goodhart（硬上限 + 权重降序截断）。
+  评分层纯机械——只跑 `evaluate_assertion`，不引入 LLM-judge，规避评分幻觉与不可复现。
+- **沙箱分支搜索（模块 9）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
+  枚举候选脚手架状态 → 离线评测 → `weighted_gate` 选最优非回退者 → 原子写回 SKILL.md；
+  规则经 `context_providers` 回注当前轮，`mine_rule_llm` 挖 LLM 规则接采样，
+  所有候选必经机械 gate，LLM 提案不自由注入。
 
 用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
 Verifier 就是「做到什么算对」的机械判据；② run-mine-gate-inject 跑失败、挖规则、注入该项目 `skills/`；
@@ -277,8 +284,8 @@ CI 在 Linux 和 macOS 上跑 lint、测试、离线验收，并从构建出的 
 - MCP 只实现 stdio 传输，没有 HTTP/SSE，也没有 resources/prompts
 - Scheduler 的跨进程认领依赖单个 SQLite 文件，不适用于多机部署
 - 没有浏览器自动化：`fetch_url` 抓取静态 HTML 并提取正文，不执行 JavaScript
-- `mine_rule` 当前是机械 fallback（拼接失败 reason 前 3 条），LLM 挖掘分支未接（设计文档 defer）
-- `harness-evolve` CLI 是 stub，任务套件接线未落；核心 API 是 `evolve()` 编程调用
+- `mine_rule` 单路径仍是机械 fallback（拼接失败 reason 前 3 条）；LLM 挖掘走 `mine_rule_llm` 分支，接进分支搜索采样
+- `harness-evolve` CLI 靠套件 `script` 字段离线回放 `branch_search`；接真模型（OpenAI 兼容端点）仍需编程调 `evolve()`/`branch_search()`
 
 ## License
 

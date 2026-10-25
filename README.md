@@ -6,7 +6,7 @@
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python"></a>
-  <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/tests-576-brightgreen" alt="tests"></a>
+  <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/tests-583-brightgreen" alt="tests"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
@@ -22,7 +22,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 
 基于 `httpx` 直连大模型 HTTP 流式接口，手写 Agent Loop 显式状态机、工具调用组装与
 执行预算控制，将模型交互、工具执行、权限审批、持久化与审计串成一条完整链路。
-核心运行时仅依赖 `httpx` 一个第三方库，覆盖 576 项自动化测试。
+核心运行时仅依赖 `httpx` 一个第三方库，覆盖 583 项自动化测试。
 
 **② 能力声明与三级审批**
 
@@ -52,9 +52,9 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 限流恢复、认证失败、网络异常等场景。基础离线 Evals 共 10 项全部通过，覆盖文本流拼接、
 完成状态、事件顺序与中文输出验证，并接入 CI 实现系统行为的持续可重复验证。
 
-## 自改进与确定性（六模块优化）
+## 自改进与确定性（七模块优化）
 
-在基础能力之上，六个模块补全了确定性外壳与自改进路径：
+在基础能力之上，七个模块补全了确定性外壳与自改进路径：
 
 - **验证回环（模块 1）**：`Verifier` 协议让任务输出先过验证再判完成，未达标自动重试，
   验证失败留下 `VerificationFailed` 审计事件，raiser 验证器触发 FAILED 而非崩溃。
@@ -70,6 +70,9 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 - **子 agent 与资产治理（模块 6）**：`SubagentSpec.success_criteria` 注入 done-when
   判据；Skill 加 `version`/`enabled` 字段并在发现时过滤禁用项；`.baremetal_harness/AGENTS.md`
   作为项目规则 required 源注入。
+- **评测迭代闭环（模块 7）**：失败 run 提升为回归评测用例（`mine_eval_cases`），
+  `eval_gate` 让候选不得让历史失败用例回退，`eval_suite_manifest` 把套件版本化进 git——
+  评测套件随运行单调增长，自改进不自改。
 
 ## 架构
 
@@ -78,8 +81,8 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 │ 交互层   AppRepl · CommandRouter                            │
 │         终端输入 / 斜杠命令（本地处理，不发给模型）           │
 ├────────────────────────────────────────────────────────────┤
-│ 进化层   meta/evolve —— run-mine-gate-inject 外层循环        │
-│         挖失败规则 → preserve-and-extend gate → 注入+沉淀    │
+│ 进化层   meta/ —— run-mine-gate-inject 外层循环 + 评测回归门│
+│        挖失败规则/用例 → gate → 注入+沉淀 → 评测套件防回退 │
 ├────────────────────────────────────────────────────────────┤
 │ 编排层   AgentLoop（显式状态机，非法状态转移直接报错）        │
 │          ├─ Verifier           任务验证 + 回环重试          │
@@ -99,7 +102,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 └────────────────────────────────────────────────────────────┘
 ```
 
-自上而下六层：交互层收指令，进化层跑外层自改进循环，编排层跑 Agent Loop 并做验证、
+自上而下六层：交互层收指令，进化层跑外层自改进循环与评测回归门，编排层跑 Agent Loop 并做验证、
 上下文与权限治理，执行层调度内置工具 / 记忆 / 计划 / 子 Agent，隔离层保证改动只落在
 沙箱副本，持久层支撑恢复与审计。
 
@@ -223,7 +226,7 @@ Inspect the git log before writing release notes.
 
 ```bash
 uv run ruff check .                                          # lint
-uv run pytest -q                                             # 576 tests
+uv run pytest -q                                             # 583 tests
 bash scripts/smoke_offline.sh                                # 完整离线验收
 ```
 

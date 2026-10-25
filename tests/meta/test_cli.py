@@ -51,3 +51,28 @@ def test_main_loads_suite(tmp_path, monkeypatch, capsys) -> None:
     monkeypatch.setattr(sys, "argv", ["harness-evolve", "--suite", str(path)])
     main()  # 不抛 SystemExit
     assert "math" in capsys.readouterr().out
+
+
+def test_main_runs_branch_search(tmp_path, monkeypatch, capsys) -> None:
+    suite = {
+        "tasks": [
+            {
+                "task_id": "math",
+                "prompt": "6*7",
+                "verifier": {"kind": "output_equals", "expected": "42"},
+            }
+        ],
+        "script": [
+            [{"type": "text", "text": "6"}, {"type": "complete", "reason": "stop"}],
+            [{"type": "text", "text": "42"}, {"type": "complete", "reason": "stop"}],
+        ],
+    }
+    path = tmp_path / "suite.json"
+    path.write_text(json.dumps(suite), encoding="utf-8")
+    monkeypatch.setattr(
+        sys, "argv", ["harness-evolve", "--suite", str(path), "--iterations", "1"]
+    )
+    main()  # script 存在 → 真跑 branch_search
+    out = capsys.readouterr().out
+    assert "math" in out
+    assert "promoted=" in out

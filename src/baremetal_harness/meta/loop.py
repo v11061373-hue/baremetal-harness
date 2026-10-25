@@ -1,12 +1,15 @@
 import argparse
+import asyncio
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
 from baremetal_harness.agent.limits import RunLimits
+from baremetal_harness.evals.runner import _event
 from baremetal_harness.evals.types import EvalAssertion
 from baremetal_harness.memory.store import SqliteMemoryStore
 from baremetal_harness.meta.evolve import gate, inject_rule, mine_rule
+from baremetal_harness.meta.search import branch_search
 from baremetal_harness.meta.tasks import (
     EvalPoint,
     EvolutionTask,
@@ -14,6 +17,7 @@ from baremetal_harness.meta.tasks import (
     failure_traces,
     run_task,
 )
+from baremetal_harness.model.scripted import ScriptedModel
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,3 +141,17 @@ def main() -> None:
         )
     tasks = parse_suite(args.suite)
     print(f"loaded {len(tasks)} tasks: {', '.join(t.task_id for t in tasks)}")
+    data = json.loads(args.suite.read_text(encoding="utf-8"))
+    script = data.get("script")
+    if not script:
+        return
+    provider = ScriptedModel(
+        tuple(tuple(_event(item) for item in turn) for turn in script)
+    )
+    steps = asyncio.run(branch_search(
+        tasks, provider=provider, model="scripted", tools=None,
+        workspace=None, limits=RunLimits(), iterations=args.iterations,
+    ))
+    for i, step in enumerate(steps):
+        rules = step.promoted.rules if step.promoted else None
+        print(f"step {i}: scores={step.scores} promoted={rules}")

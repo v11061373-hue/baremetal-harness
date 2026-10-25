@@ -9,6 +9,7 @@ class SubagentSpec:
     max_turns: int
     max_tool_calls: int
     allowed_tools: tuple[str, ...]
+    success_criteria: str = ""
 
 
 @dataclass(frozen=True, slots=True)

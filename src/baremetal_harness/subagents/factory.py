@@ -111,10 +111,16 @@ class AgentLoopFactory:
 
 def _child_prompt(spec: SubagentSpec) -> str:
     tools = ", ".join(spec.allowed_tools) or "none"
+    criteria = (
+        f"\nYou are done only when: {spec.success_criteria}"
+        if spec.success_criteria
+        else ""
+    )
     return (
         f"You are subagent '{spec.agent_id}' working on one bounded task.\n"
         f"Task: {spec.task}\n"
         f"You may only use these tools: {tools}.\n"
+        f"{criteria}\n"
         "Report the outcome and cite the evidence you inspected."
     )
 

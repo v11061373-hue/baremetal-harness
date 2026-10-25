@@ -1,6 +1,6 @@
 # BareMetal Harness
 
-> 轻量级终端 AI Agent Harness 运行系统 —— 零 Agent 框架依赖，运行时只有 `httpx` 一个第三方库。
+> 自改进终端 AI Agent Harness —— 长期记忆（BM25 + 半衰期 + 去重）、确定性命令护栏、子 agent 编排、外层进化循环；零 Agent 框架依赖，运行时只有 `httpx` 一个第三方库。
 
 <p align="center">
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>

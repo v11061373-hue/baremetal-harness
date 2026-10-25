@@ -1,4 +1,4 @@
-"""Σ-RSI 分支搜索训练回路，接真模型（OpenAI 兼容端点）。
+"""Σ-RSI 分支搜索训练回路，接真模型（OpenAI 兼容端点），无端点离线回放。
 
 展示 baremetal_harness.meta.search 的 Σ 派（scaffold 级）RSI 闭环：
 ScaffoldState 候选枚举 → evaluate_state 离线评测 → weighted_gate 选最优非回退 →
@@ -12,6 +12,8 @@ LLM 挖规则走 mine_rule_llm（miner_client），所有候选必经机械 gate
   BAREMETAL_HARNESS_API_KEY=ollama \
   BAREMETAL_HARNESS_MODEL=qwen2.5 \
   uv run python examples/branch_search_live.py
+
+不设端点则离线跑通同一条闭环（ScriptedModel 回放 fail→pass）。
 """
 
 import asyncio
@@ -20,8 +22,10 @@ import tempfile
 from pathlib import Path
 
 from baremetal_harness.agent.limits import RunLimits
+from baremetal_harness.core.messages import ResponseCompleted, TextDelta
 from baremetal_harness.meta import EvolutionTask, branch_search, promote_state
 from baremetal_harness.model.openai_compat import OpenAICompatibleClient
+from baremetal_harness.model.scripted import ScriptedModel
 
 
 class CheckContains:
@@ -40,14 +44,6 @@ async def main() -> None:
     base_url = os.environ.get("BAREMETAL_HARNESS_BASE_URL")
     api_key = os.environ.get("BAREMETAL_HARNESS_API_KEY")
     model = os.environ.get("BAREMETAL_HARNESS_MODEL", "default")
-    if not base_url or not api_key:
-        raise SystemExit(
-            "set BAREMETAL_HARNESS_BASE_URL and BAREMETAL_HARNESS_API_KEY "
-            "(and optionally BAREMETAL_HARNESS_MODEL)"
-        )
-
-    # 同一个无状态 client 既当跑任务的 provider，又当挖规则的 miner_client。
-    client = OpenAICompatibleClient(base_url, api_key)
 
     tasks = (
         EvolutionTask(
@@ -55,15 +51,33 @@ async def main() -> None:
         ),
     )
 
+    if base_url and api_key:
+        # 同一个无状态 client 既当跑任务的 provider，又当挖规则的 miner_client。
+        provider = OpenAICompatibleClient(base_url, api_key)
+        miner = provider
+    else:
+        print("no endpoint set — offline ScriptedModel demo")
+        # provider 4 turn：baseline 2 次失败耗尽（AgentLoop 验证回环会重试）
+        # → 机械候选通过 → LLM 候选通过
+        provider = ScriptedModel((
+            (TextDelta("6"), ResponseCompleted("stop")),
+            (TextDelta("6"), ResponseCompleted("stop")),
+            (TextDelta("42"), ResponseCompleted("stop")),
+            (TextDelta("42"), ResponseCompleted("stop")),
+        ))
+        # miner 1 turn：LLM 挖规则回放
+        miner = ScriptedModel(((TextDelta("answer 42"), ResponseCompleted("stop")),))
+        model = "scripted"
+
     steps = await branch_search(
         tasks,
-        provider=client,
-        miner_client=client,
+        provider=provider,
+        miner_client=miner,
         model=model,
         tools=None,
         workspace=None,
         limits=RunLimits(2, 2),
-        iterations=3,
+        iterations=1,
     )
 
     for i, step in enumerate(steps):

@@ -331,7 +331,19 @@ class AgentLoop:
                     output = "".join(answer)
                     messages.append(Message("assistant", (TextContent(output),)))
                     if self.verifier is not None:
-                        reason = await self.verifier.verify(output, prompt)
+                        try:
+                            reason = await self.verifier.verify(output, prompt)
+                        except Exception:
+                            status = transition(status, RunStatus.FAILED)
+                            await checkpoint()
+                            return RunResult(
+                                run_id,
+                                session_id,
+                                status,
+                                output,
+                                tuple(messages),
+                                tuple(events),
+                            )
                         if reason is not None:
                             await emit(VerificationFailed(output, reason))
                             messages.append(

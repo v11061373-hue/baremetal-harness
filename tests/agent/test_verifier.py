@@ -17,6 +17,11 @@ class ScriptedVerifier:
         return self._decisions.pop(0)
 
 
+class RaisingVerifier:
+    async def verify(self, output: str, prompt: str) -> str | None:
+        raise AssertionError("check failed")
+
+
 async def test_verifier_pass_completes() -> None:
     verifier = ScriptedVerifier([None])
     loop = AgentLoop(
@@ -76,3 +81,16 @@ async def test_verifier_fail_exhausts_turn_budget() -> None:
     result = await loop.run("say ok")
 
     assert result.status is RunStatus.EXHAUSTED
+
+
+async def test_verifier_exception_fails_run() -> None:
+    loop = AgentLoop(
+        FakeModel([TextDelta("ok"), ResponseCompleted("stop")]),
+        model="fake",
+        verifier=RaisingVerifier(),
+    )
+
+    result = await loop.run("say ok")
+
+    assert result.status is RunStatus.FAILED
+    assert result.output == "ok"

@@ -1,8 +1,10 @@
 import json
-from datetime import UTC, datetime
 
+from baremetal_harness.memory.consolidation import MemoryCandidate
+from baremetal_harness.memory.events import search_events
 from baremetal_harness.memory.store import SqliteMemoryStore
-from baremetal_harness.memory.types import MemoryRecord
+from baremetal_harness.observability.redaction import Redactor
+from baremetal_harness.sessions.events import JsonlEventStore
 from baremetal_harness.tools.types import (
     RegisteredTool,
     ToolCapabilities,
@@ -11,17 +13,20 @@ from baremetal_harness.tools.types import (
 )
 
 
-def make_memory_tools(store: SqliteMemoryStore) -> tuple[RegisteredTool, ...]:
+def make_memory_tools(
+    store: SqliteMemoryStore,
+    event_store: JsonlEventStore,
+    redactor: Redactor,
+) -> tuple[RegisteredTool, ...]:
     async def remember(arguments, context: ToolContext) -> str:
-        record = MemoryRecord(
-            str(arguments["memory_id"]),
+        candidate = MemoryCandidate(
             str(arguments["text"]),
-            str(arguments["source_ref"]),
+            f"run:{context.run_id}:tool:remember",
             tuple(str(tag) for tag in arguments.get("tags", [])),
-            datetime.now(UTC).isoformat(),
+            str(arguments["correction_of"]) if arguments.get("correction_of") else None,
         )
-        await store.put(record)
-        return record.memory_id
+        _, memory_id = await store.add(candidate)
+        return memory_id
 
     async def search_memory(arguments, context: ToolContext) -> str:
         records = await store.search(str(arguments["query"]))
@@ -37,15 +42,19 @@ def make_memory_tools(store: SqliteMemoryStore) -> tuple[RegisteredTool, ...]:
             separators=(",", ":"),
         )
 
+    async def search_history(arguments, context: ToolContext) -> str:
+        events = await event_store.load()
+        hits = search_events(events, str(arguments["query"]), redactor=redactor)
+        return json.dumps(list(hits), separators=(",", ":"))
+
     remember_schema = {
         "type": "object",
         "properties": {
-            "memory_id": {"type": "string"},
             "text": {"type": "string"},
-            "source_ref": {"type": "string"},
             "tags": {"type": "array", "items": {"type": "string"}},
+            "correction_of": {"type": "string"},
         },
-        "required": ["memory_id", "text", "source_ref"],
+        "required": ["text"],
         "additionalProperties": False,
     }
     search_schema = {
@@ -72,5 +81,14 @@ def make_memory_tools(store: SqliteMemoryStore) -> tuple[RegisteredTool, ...]:
                 ToolCapabilities(),
             ),
             search_memory,
+        ),
+        RegisteredTool(
+            ToolSpec(
+                "search_history",
+                "Search historical events (trace memory)",
+                search_schema,
+                ToolCapabilities(),
+            ),
+            search_history,
         ),
     )

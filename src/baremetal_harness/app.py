@@ -31,6 +31,7 @@ from baremetal_harness.memory.store import SqliteMemoryStore
 from baremetal_harness.model.base import ModelProvider
 from baremetal_harness.model.openai_compat import OpenAICompatibleClient
 from baremetal_harness.observability.metrics import metrics_from_events
+from baremetal_harness.observability.redaction import Redactor
 from baremetal_harness.observability.trace import JsonlTraceSink
 from baremetal_harness.paths import BareMetalHarnessPaths
 from baremetal_harness.permissions.approval import (
@@ -681,7 +682,7 @@ async def create_app(
         for tool in make_file_tools():
             tools.register(tool)
         tools.register(make_run_command_tool(selected_sandbox))
-        for tool in make_memory_tools(memory):
+        for tool in make_memory_tools(memory, event_store, Redactor(trace_secrets)):
             tools.register(tool)
         for tool in make_builtin_planning_tools(plans):
             tools.register(tool)

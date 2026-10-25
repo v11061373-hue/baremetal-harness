@@ -85,6 +85,27 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
   所有候选必经机械 gate，LLM 提案不自由注入。Σ 派（scaffold 级）RSI 闭环：
   改的是脚手架（规则 + 评测套件），不是模型权重。
 
+### Σ-RSI 详细设计
+
+Σ-RSI 改脚手架（规则 + 评测套件），不改模型权重。闭环六个环节，每个都有机械判据兜底：
+
+| 环节 | 关键技术 | 作用 |
+|---|---|---|
+| 候选枚举 | `propose_candidates` | 失败 reason 机械切规则候选，粒度 1/2/3（分支宽 ≤3） |
+| LLM 挖规则 | `mine_rule_llm` | 真模型提案规则，接入采样 |
+| 离线评测 | `evaluate_state` / `score_run` | 跑候选、按评测点打分 |
+| 规则回注 | `context_providers` | 候选规则注入当前轮 run，真让 agent 带规则重试 |
+| 防回退门 | `weighted_gate` | 无分数回退 + 至少一任务提升才 promote |
+| 分支搜索 + 写回 | `branch_search` / `promote_state` | 枚举 N 候选选最优，原子写 SKILL.md（git 可回滚） |
+
+价值点，从高到低：
+
+1. **机械 gate 兜底 LLM 提案** —— LLM 永不进评分/门控关键路径，挖出的幻觉规则一旦回退即被 `weighted_gate` 自动拒。
+2. **标尺不改** —— eval cases 是 ground truth，不进 `ScaffoldState`，自改进不自改评测标准。
+3. **反 Goodhart（`cap_points`）** —— 评测点硬上限 + 权重降序截断，防评分过拟合。
+4. **分支搜索替代单路径 ratchet** —— 多候选竞争选最优非回退；诚实：仍无梯度/退火/重启，缓解不消除局部最优。
+5. **离线可测** —— ScriptedModel 回放全链路，无 API Key 复现闭环（`examples/branch_search_live.py`）。
+
 用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
 Verifier 就是「做到什么算对」的机械判据；② run-mine-gate-inject 跑失败、挖规则、注入该项目 `skills/`；
 ③ 失败沉淀回归用例进 git，`eval_gate` 让未来候选不得回退。

@@ -144,8 +144,8 @@ rule = mine_rule(None, failure_traces(tuple(r for r in runs.values() if not r.pa
 │ 交互层   AppRepl · CommandRouter                            │
 │         终端输入 / 斜杠命令（本地处理，不发给模型）           │
 ├────────────────────────────────────────────────────────────┤
-│ 进化层   meta/ —— run-mine-gate-inject 外层循环 + 评测回归门│
-│        挖失败规则/用例 → gate → 注入+沉淀 → 评测套件防回退 │
+│ 进化层   meta/ —— 评测体系 + Σ-RSI 分支搜索自改进          │
+│        score_run/weighted_gate/cap_points · branch_search  │
 ├────────────────────────────────────────────────────────────┤
 │ 编排层   AgentLoop（显式状态机，非法状态转移直接报错）        │
 │          ├─ Verifier           任务验证 + 回环重试          │
@@ -165,7 +165,7 @@ rule = mine_rule(None, failure_traces(tuple(r for r in runs.values() if not r.pa
 └────────────────────────────────────────────────────────────┘
 ```
 
-自上而下六层：交互层收指令，进化层跑外层自改进循环与评测回归门，编排层跑 Agent Loop 并做验证、
+自上而下六层：交互层收指令，进化层跑评测体系与 Σ-RSI 分支搜索自改进，编排层跑 Agent Loop 并做验证、
 上下文与权限治理，执行层调度内置工具 / 记忆 / 计划 / 子 Agent，隔离层保证改动只落在
 沙箱副本，持久层支撑恢复与审计。
 

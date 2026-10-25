@@ -3,7 +3,22 @@ from dataclasses import dataclass
 from baremetal_harness.agent.limits import RunLimits
 from baremetal_harness.agent.loop import AgentLoop, RunResult, Verifier
 from baremetal_harness.agent.state import RunStatus
+from baremetal_harness.evals.types import EvalAssertion
 from baremetal_harness.tools.registry import ToolRegistry
+
+
+@dataclass(frozen=True, slots=True)
+class EvalPoint:
+    dimension: str
+    assertion: EvalAssertion
+    weight: float = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class TaskScore:
+    task_id: str
+    point_results: tuple[tuple[str, bool], ...]  # (dimension, passed)
+    score: float                                # 0..1 归一化加权分
 
 
 @dataclass(frozen=True, slots=True)
@@ -11,6 +26,7 @@ class EvolutionTask:
     task_id: str
     prompt: str
     verifier: Verifier
+    points: tuple[EvalPoint, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

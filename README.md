@@ -1,12 +1,12 @@
 # BareMetal Harness
 
-> 自改进终端 AI Agent Harness —— 长期记忆（BM25 + 半衰期 + 去重）、确定性命令护栏、子 agent 编排、外层进化循环；零 Agent 框架依赖，唯一第三方依赖是 `httpx`。
+> 自改进终端 AI Agent Harness —— Σ-RSI（scaffold 级分支搜索自改进）+ 评测迭代闭环 + 确定性外壳；长期记忆（BM25 + 半衰期 + 去重）、命令护栏、子 agent 编排；零 Agent 框架依赖，唯一第三方依赖是 `httpx`。
 
 <p align="center">
   <a href="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml"><img src="https://github.com/v11061373-hue/baremetal-harness/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green" alt="License"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/Python-3.12+-blue" alt="Python"></a>
-  <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/tests-583-brightgreen" alt="tests"></a>
+  <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/tests-616-brightgreen" alt="tests"></a>
   <a href="https://github.com/v11061373-hue/baremetal-harness"><img src="https://img.shields.io/badge/deps-httpx%20only-lightgrey" alt="deps"></a>
 </p>
 
@@ -25,7 +25,7 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 
 基于 `httpx` 直连大模型 HTTP 流式接口，手写 Agent Loop 显式状态机、工具调用组装与
 执行预算控制，将模型交互、工具执行、权限审批、持久化与审计串成一条完整链路。
-核心运行期仅依赖 `httpx` 一个第三方库，覆盖 583 项自动化测试。
+核心运行期仅依赖 `httpx` 一个第三方库，覆盖 616 项自动化测试。
 
 **② 能力声明与三级审批**
 
@@ -55,31 +55,35 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 限流恢复、认证失败、网络异常等场景。基础离线 Evals 共 10 项全部通过，覆盖文本流拼接、
 完成状态、事件顺序与中文输出验证，并接入 CI 实现系统行为的持续可重复验证。
 
-## 自改进与确定性（九模块优化）
+## 自改进与确定性
 
-在基础能力之上，九个模块补全了确定性外壳、评测体系与自改进路径：
+### 确定性外壳（模块 1–4、6）
 
-- **验证回环（模块 1）**：`Verifier` 协议让任务输出先过验证再判完成，未达标自动重试，
+- **验证回环**：`Verifier` 协议让任务输出先过验证再判完成，未达标自动重试，
   验证失败留下 `VerificationFailed` 审计事件，raiser 验证器触发 FAILED 而非崩溃。
-- **BM25 记忆检索（模块 2）**：检索从词重叠换成 BM25 × 分类半衰期 × 负样本加权，
+- **BM25 记忆检索**：检索从词重叠换成 BM25 × 分类半衰期 × 负样本加权，
   写路径经 consolidator 去重（dedup / supersede），trace 检索（deja-vu）无 LLM。
-- **上下文压缩（模块 3）**：会话启动按相关性注入记忆（`memory:session` 必填 +
+- **上下文压缩**：会话启动按相关性注入记忆（`memory:session` 必填 +
   `memory` 可选），空结果弃权不注入，超限按字符截断。
-- **确定性外壳与预算门（模块 4）**：`DestructiveCommandGuard` 精确匹配 `rm -rf /`
+- **确定性外壳与预算门**：`DestructiveCommandGuard` 精确匹配 `rm -rf /`
   等破坏性命令，在工具执行前拦截（fail-open），配合 turns / tool_calls / timeout
   三层预算门，超限 emit `BudgetExceeded`，拦截 emit `PermissionEvaluated`。
-- **外层进化循环（模块 5）**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
-  跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行期。
-- **子 agent 与资产治理（模块 6）**：`SubagentSpec.success_criteria` 注入 done-when
+- **子 agent 与资产治理**：`SubagentSpec.success_criteria` 注入 done-when
   判据；Skill 加 `version`/`enabled` 字段并在发现时过滤禁用项；`.baremetal_harness/AGENTS.md`
   作为项目规则 required 源注入。
-- **评测迭代闭环（模块 7）**：失败 run 提升为回归评测用例（`mine_eval_cases`），
+
+### 评测迭代与 Σ-RSI（模块 5、7、8、9）
+
+- **外层进化循环**：`harness-evolve` 跑 run-mine-gate-inject 四阶段——
+  跑任务 → 挖失败规则 → preserve-and-extend gate → 注入 Skill + 沉淀记忆，零碰运行期。
+- **评测迭代闭环**：失败 run 提升为回归评测用例（`mine_eval_cases`），
   `eval_gate` 让候选不得让历史失败用例回退，`eval_suite_manifest` 把套件版本化进 git——
   评测套件随运行单调增长，自改进不自改。
-- **评测体系（模块 8）**：`score_run` 给单次 run 打分，`weighted_gate` 判候选 promote，
-  `heuristic_weights` 启发式赋权，`cap_points` 反 Goodhart（硬上限 + 权重降序截断）。
-  评分层纯机械——只跑 `evaluate_assertion`，不引入 LLM-judge，规避评分幻觉与不可复现。
-- **沙箱分支搜索（模块 9，Σ-RSI）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
+- **评测体系**：`score_run` 给单次 run 打分，`weighted_gate` 判候选 promote，
+  `heuristic_weights` 启发式赋权，`cap_points` 反 Goodhart——评测点超 5 个按权重降序截断，
+  平局按维度名字典序。评分层纯机械——只跑 `evaluate_assertion`，不引入 LLM-judge，
+  规避评分幻觉与不可复现。
+- **沙箱分支搜索（Σ-RSI）**：`branch_search` 把单路径 ratchet 升级为分支搜索——
   枚举候选脚手架状态 → 离线评测 → `weighted_gate` 选最优非回退者 → 原子写回 SKILL.md；
   规则经 `context_providers` 回注当前轮，`mine_rule_llm` 挖 LLM 规则接采样，
   所有候选必经机械 gate，LLM 提案不自由注入。Σ 派（scaffold 级）RSI 闭环：
@@ -89,21 +93,21 @@ Skills、Subagent、Scheduler、MCP 客户端、Tracing、Evals —— 全部由
 
 Σ-RSI 改脚手架（规则 + 评测套件），不改模型权重。闭环六个环节，每个都有机械判据兜底：
 
-| 环节 | 关键技术 | 作用 |
+| 环节 | 关键技术 | 机制 |
 |---|---|---|
-| 候选枚举 | `propose_candidates` | 失败 reason 机械切规则候选，粒度 1/2/3（分支宽 ≤3） |
-| LLM 挖规则 | `mine_rule_llm` | 真模型提案规则，接入采样 |
-| 离线评测 | `evaluate_state` / `score_run` | 跑候选、按评测点打分 |
-| 规则回注 | `context_providers` | 候选规则注入当前轮 run，真让 agent 带规则重试 |
-| 防回退门 | `weighted_gate` | 无分数回退 + 至少一任务提升才 promote |
-| 分支搜索 + 写回 | `branch_search` / `promote_state` | 枚举 N 候选选最优，原子写 SKILL.md（git 可回滚） |
+| 候选枚举 | `propose_candidates` | 失败 reason 机械切规则，粒度 1/2/3 条各一（分支宽 ≤3） |
+| LLM 挖规则 | `mine_rule_llm` | 拼失败 reason → 真模型提案规则 → 截断 `MAX_RULE_CHARS`(2000) |
+| 离线评测 | `evaluate_state` / `score_run` | 跑候选，按 `EvalPoint` 加权打分 0..1 |
+| 规则回注 | `context_providers` | 候选规则作 required context（priority 90）注入当前轮 run |
+| 防回退门 | `weighted_gate` | 无分数回退 + ≥1 任务提升才 promote（preserve-and-extend 分数版） |
+| 分支搜索 + 写回 | `branch_search` / `promote_state` | 枚举 N 候选选最优非回退，原子写 SKILL.md，git 可回滚 |
 
 价值点，从高到低：
 
 1. **机械 gate 兜底 LLM 提案** —— LLM 永不进评分/门控关键路径，挖出的幻觉规则一旦回退即被 `weighted_gate` 自动拒。
 2. **标尺不改** —— eval cases 是 ground truth，不进 `ScaffoldState`，自改进不自改评测标准。
-3. **反 Goodhart（`cap_points`）** —— 评测点硬上限 + 权重降序截断，防评分过拟合。
-4. **分支搜索替代单路径 ratchet** —— 多候选竞争选最优非回退；诚实：仍无梯度/退火/重启，缓解不消除局部最优。
+3. **反 Goodhart（`cap_points`）** —— 评测点硬上限 5 + 权重降序截断，防评分过拟合。
+4. **分支搜索替代单路径 ratchet** —— 多候选竞争选最优非回退；诚实标签：确定性迭代脚手架精化，非强自我改进（无梯度/退火/重启，缓解不消除局部最优）。
 5. **离线可测** —— ScriptedModel 回放全链路，无 API Key 复现闭环（`examples/branch_search_live.py`）。
 
 用你自己的 agent / 工作流做评测自迭代，三步：① 把目标工作流拆成 `EvolutionTask(prompt, Verifier)`，
@@ -288,7 +292,7 @@ Inspect the git log before writing release notes.
 
 ```bash
 uv run ruff check .                                          # lint
-uv run pytest -q                                             # 583 tests
+uv run pytest -q                                             # 616 tests
 bash scripts/smoke_offline.sh                                # 完整离线验收
 ```
 

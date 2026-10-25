@@ -37,4 +37,8 @@ def discover_skills(
     )
     by_name = {skill.name: skill for skill in user_skills}
     by_name.update({skill.name: skill for skill in project_skills})
-    return tuple(by_name[name] for name in sorted(by_name))
+    return tuple(
+        skill
+        for skill in (by_name[name] for name in sorted(by_name))
+        if skill.enabled
+    )

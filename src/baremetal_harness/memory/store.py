@@ -249,3 +249,26 @@ class SqliteMemoryStore:
         )
         self._put_blocking(record)
         return action, memory_id
+
+    async def recent(self, *, limit: int = 5) -> tuple[MemoryRecord, ...]:
+        """最近记忆：superseded 过滤，created_at 降序（ISO 串字典序 = 时间序）。"""
+        return await asyncio.to_thread(self._recent_blocking, limit)
+
+    def _recent_blocking(self, limit: int) -> tuple[MemoryRecord, ...]:
+        with self._connect() as connection:
+            rows = connection.execute("SELECT * FROM memories").fetchall()
+        records = tuple(
+            MemoryRecord(
+                row["memory_id"],
+                row["text"],
+                row["source_ref"],
+                tuple(json.loads(row["tags_json"])),
+                row["created_at"],
+                row["supersedes"],
+            )
+            for row in rows
+        )
+        superseded = {r.supersedes for r in records if r.supersedes}
+        records = tuple(r for r in records if r.memory_id not in superseded)
+        records = sorted(records, key=lambda r: r.created_at, reverse=True)
+        return records[:limit]

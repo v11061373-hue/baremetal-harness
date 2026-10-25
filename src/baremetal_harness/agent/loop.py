@@ -330,6 +330,18 @@ class AgentLoop:
                 if finish_reason == "stop":
                     output = "".join(answer)
                     messages.append(Message("assistant", (TextContent(output),)))
+                    if self.verifier is not None:
+                        reason = await self.verifier.verify(output, prompt)
+                        if reason is not None:
+                            await emit(VerificationFailed(output, reason))
+                            messages.append(
+                                Message(
+                                    "user",
+                                    (TextContent(f"上次输出未达标：{reason}，重试"),),
+                                )
+                            )
+                            status = transition(status, RunStatus.RECORDING_RESULTS)
+                            continue
                     status = transition(status, RunStatus.COMPLETED)
                     await emit(RunCompleted(output))
                     await checkpoint()

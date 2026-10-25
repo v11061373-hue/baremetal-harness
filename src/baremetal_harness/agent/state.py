@@ -31,6 +31,7 @@ ALLOWED_TRANSITIONS = {
         RunStatus.FAILED,
         RunStatus.CANCELLED,
         RunStatus.EXHAUSTED,
+        RunStatus.RECORDING_RESULTS,
     },
     RunStatus.VALIDATING_TOOLS: {
         RunStatus.AWAITING_APPROVAL,

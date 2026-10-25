@@ -19,6 +19,7 @@ dev = [
 
 [project.scripts]
 baremetal-harness = "baremetal_harness.cli.repl:main"
+harness-evolve = "baremetal_harness.meta.loop:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

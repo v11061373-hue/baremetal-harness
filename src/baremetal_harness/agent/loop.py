@@ -58,6 +58,12 @@ class RunCompleted:
 
 
 @dataclass(frozen=True, slots=True)
+class VerificationFailed:
+    output: str
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class RunCancelled:
     reason: str = "cancelled"
 
@@ -81,6 +87,17 @@ class ContextProvider(Protocol):
     """Contribute extra context sources for one run, e.g. skills or memory."""
 
     async def build(self, prompt: str) -> tuple[ContextSource, ...]: ...
+
+
+class Verifier(Protocol):
+    """Decide whether a completed output satisfies the task, before COMPLETED.
+
+    Grounded check: inspect the task requirements and the *actual* resulting
+    state inside `verify` via your own closure. Return `None` to pass, or a
+    non-empty `str` naming why it failed.
+    """
+
+    async def verify(self, output: str, prompt: str) -> str | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +135,7 @@ class AgentLoop:
         approval_provider: InMemoryApprovalProvider | None = None,
         trace_sinks: tuple[TraceSink, ...] = (),
         context_providers: tuple["ContextProvider", ...] = (),
+        verifier: Verifier | None = None,
     ) -> None:
         self.provider = provider
         self.model = model
@@ -141,6 +159,7 @@ class AgentLoop:
         self.approval_provider = approval_provider
         self.trace_sinks = trace_sinks
         self.context_providers = context_providers
+        self.verifier = verifier
 
     async def run(
         self,

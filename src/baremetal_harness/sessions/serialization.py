@@ -204,6 +204,7 @@ def _event_payload_types() -> dict[str, type]:
         RunCancelled,
         RunCompleted,
         RunStarted,
+        VerificationFailed,
     )
     from baremetal_harness.workspace.session import ArtifactApplied
 
@@ -221,6 +222,7 @@ def _event_payload_types() -> dict[str, type]:
             RunCompleted,
             RunCancelled,
             ArtifactApplied,
+            VerificationFailed,
         )
     }
 
